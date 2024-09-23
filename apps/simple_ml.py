@@ -10,7 +10,7 @@ sys.path.append("python/")
 import needle as ndl
 
 
-def parse_mnist(image_filesname, label_filename):
+def parse_mnist(image_filename, label_filename):
     """Read an images and labels file in MNIST format.  See this page:
     http://yann.lecun.com/exdb/mnist/ for a description of the file format.
 
@@ -32,12 +32,25 @@ def parse_mnist(image_filesname, label_filename):
                 labels of the examples.  Values should be of type np.int8 and
                 for MNIST will contain the values 0-9.
     """
-    ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
-    ### END YOUR SOLUTION
+    with gzip.open(image_filename, 'rb') as img_file:
+        # '>' as big-endian, 'I' as unsigned int
+        magic_number, num_images, num_rows, num_cols = struct.unpack('>IIII', img_file.read(16))
+        
+        image_data = img_file.read(num_images * num_rows * num_cols)
+        X = np.frombuffer(image_data, dtype=np.uint8)
+        X = X.reshape(num_images, num_rows * num_cols).astype(np.float32)
+        X = X / 255.0  # Normalize to [0, 1]
+    
+    with gzip.open(label_filename, 'rb') as lbl_file:
+        magic_number, num_labels = struct.unpack('>II', lbl_file.read(8))
+        
+        label_data = lbl_file.read(num_labels)
+        y = np.frombuffer(label_data, dtype=np.uint8)
+    
+    return X, y
 
 
-def softmax_loss(Z, y_one_hot):
+def softmax_loss(Z: ndl.Tensor, y_one_hot: ndl.Tensor):
     """Return softmax loss.  Note that for the purposes of this assignment,
     you don't need to worry about "nicely" scaling the numerical properties
     of the log-sum-exp computation, but can just compute this directly.
@@ -53,9 +66,9 @@ def softmax_loss(Z, y_one_hot):
     Returns:
         Average softmax loss over the sample. (ndl.Tensor[np.float32])
     """
-    ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
-    ### END YOUR SOLUTION
+    logsumexp = ndl.log(ndl.summation(ndl.exp(Z), axes=(1,)))
+    Zy = ndl.summation(Z * y_one_hot, axes=(1,))
+    return ndl.summation(logsumexp - Zy, axes=(0,)) / Z.shape[0]
 
 
 def nn_epoch(X, y, W1, W2, lr=0.1, batch=100):
