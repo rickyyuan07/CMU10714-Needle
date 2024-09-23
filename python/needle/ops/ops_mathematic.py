@@ -219,6 +219,8 @@ class Summation(TensorOp): # sum of array elements over given axes (1 input, `ax
         # If axes are None (summation over all axes), treat it as reducing all axes
         if self.axes is None:
             axes = tuple(range(len(input_shape)))
+        elif isinstance(self.axes, int):
+            axes = (self.axes,)
         else:
             axes = self.axes
 
