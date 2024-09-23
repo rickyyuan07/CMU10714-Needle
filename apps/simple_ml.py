@@ -94,10 +94,31 @@ def nn_epoch(X, y, W1, W2, lr=0.1, batch=100):
             W1: ndl.Tensor[np.float32]
             W2: ndl.Tensor[np.float32]
     """
+    num_examples = X.shape[0]
+    k = W2.shape[-1] # num_classes (output_dim)
 
-    ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
-    ### END YOUR SOLUTION
+    for i in range(0, num_examples, batch):
+        X_batch = ndl.Tensor(X[i:i + batch])
+        y_batch = y[i:i + batch]
+
+        # Create one-hot encoded ndl.tensor for y_batch, shape (batch_size, k)
+        y_one_hot = np.zeros((batch, k))
+        y_one_hot[np.arange(batch), y_batch] = 1
+        y_batch = ndl.Tensor(y_one_hot)
+
+        # Forward
+        Z = ndl.relu(X_batch @ W1) @ W2
+
+        loss = softmax_loss(Z, y_batch)
+        loss.backward()
+        
+        # Note: Since we did not implement optimizer.zero_grad() like Pytorch,
+        # we need to transform gradients to numpy and then back to ndl.Tensor
+        # to avoid accumulating gradients
+        W1 = ndl.Tensor(W1.numpy() - lr * W1.grad.numpy())
+        W2 = ndl.Tensor(W2.numpy() - lr * W2.grad.numpy())
+
+    return W1, W2
 
 
 ### CODE BELOW IS FOR ILLUSTRATION, YOU DO NOT NEED TO EDIT
