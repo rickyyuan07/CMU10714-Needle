@@ -383,19 +383,20 @@ def compute_gradient_of_variables(output_tensor, out_grad):
     for node in reverse_topo_order:
         # Sum the gradients flowing into this node
         grad_wrt_output = sum_node_list(node_to_output_grads_list[node])
-        
-        # If the node is a leaf (i.e., has no operation), we assign the gradient directly
-        if node.is_leaf():
-            node.grad = grad_wrt_output
-        else:
-            # Compute the gradients for each input to the node using the node's backward function
-            input_grads = node.op.gradient_as_tuple(grad_wrt_output, node)
+        # Store adjoint of input node \bar{v_{input}}
+        node.grad = grad_wrt_output
 
-            # Propagate the gradients to the inputs
-            for i, input_node in enumerate(node.inputs):
-                if input_node not in node_to_output_grads_list:
-                    node_to_output_grads_list[input_node] = []
-                node_to_output_grads_list[input_node].append(input_grads[i])
+        # No need to propagate gradient through leaf nodes
+        if node.is_leaf():
+            continue
+        
+        # Compute the gradients for each input to the node using the node's backward function
+        input_grads = node.op.gradient_as_tuple(grad_wrt_output, node)
+        # Propagate the gradients to the inputs
+        for i, input_node in enumerate(node.inputs):
+            if input_node not in node_to_output_grads_list:
+                node_to_output_grads_list[input_node] = []
+            node_to_output_grads_list[input_node].append(input_grads[i])
 
 
 def find_topo_sort(node_list: List[Value]) -> List[Value]:

@@ -115,8 +115,11 @@ def nn_epoch(X, y, W1, W2, lr=0.1, batch=100):
         # Note: Since we did not implement optimizer.zero_grad() like Pytorch,
         # we need to transform gradients to numpy and then back to ndl.Tensor
         # to avoid accumulating gradients
-        W1 = ndl.Tensor(W1.numpy() - lr * W1.grad.numpy())
-        W2 = ndl.Tensor(W2.numpy() - lr * W2.grad.numpy())
+        W1 -= lr * W1.grad.detach()
+        W2 -= lr * W2.grad.detach()
+        # Note: numpy also works
+        # W1 = ndl.Tensor(W1.numpy() - lr * W1.grad.numpy())
+        # W2 = ndl.Tensor(W2.numpy() - lr * W2.grad.numpy())
 
     return W1, W2
 
