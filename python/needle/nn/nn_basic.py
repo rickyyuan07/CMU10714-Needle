@@ -122,9 +122,9 @@ class Sequential(Module):
         self.modules = modules
 
     def forward(self, x: Tensor) -> Tensor:
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        for module in self.modules:
+            x = module(x)
+        return x
 
 
 class SoftmaxLoss(Module):
