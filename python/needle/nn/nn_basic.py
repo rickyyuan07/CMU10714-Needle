@@ -87,14 +87,22 @@ class Linear(Module):
         self.in_features = in_features
         self.out_features = out_features
 
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        self.weight = Parameter(
+            init.kaiming_uniform(fan_in=in_features, fan_out=out_features, device=device, dtype=dtype)
+        )
+        if bias:
+            self.bias = Parameter(
+                init.kaiming_uniform(fan_in=out_features, fan_out=1, device=device, dtype=dtype).transpose()
+            )
+        else:
+            self.bias = None
 
     def forward(self, X: Tensor) -> Tensor:
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        y = X @ self.weight # (batch_size (B), n_out_feats)
+        if self.bias is not None:
+            y += ops.broadcast_to(self.bias, y.shape)
+
+        return y
 
 
 class Flatten(Module):
