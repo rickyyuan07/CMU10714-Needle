@@ -48,9 +48,9 @@ def epoch(dataloader: ndl.data.DataLoader, model: nn.Module, opt: ndl.optim.Opti
     sum_loss = 0.0
 
     for i, batch in enumerate(dataloader):
-        batch_size = y.shape[0]
         X, y = batch
         X = X.reshape((X.shape[0], -1)) # Flatten: (B, 28, 28, 1) -> (B, 784)
+        batch_size = y.shape[0]
 
         if model.training:
             opt.reset_grad()
