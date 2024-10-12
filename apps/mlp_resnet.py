@@ -38,11 +38,35 @@ def MLPResNet(
     blocks.append(nn.Linear(hidden_dim, num_classes))
     return nn.Sequential(*blocks)
 
-def epoch(dataloader, model, opt=None):
+
+def epoch(dataloader: ndl.data.DataLoader, model: nn.Module, opt: ndl.optim.Optimizer=None):
     np.random.seed(4)
-    ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
-    ### END YOUR SOLUTION
+    
+    model.eval() if opt is None else model.train()
+    loss_fn = nn.SoftmaxLoss()
+    sum_err = 0.0
+    sum_loss = 0.0
+
+    for i, batch in enumerate(dataloader):
+        batch_size = y.shape[0]
+        X, y = batch
+        X = X.reshape((X.shape[0], -1)) # Flatten: (B, 28, 28, 1) -> (B, 784)
+
+        if model.training:
+            opt.reset_grad()
+
+        logits = model(X)
+        loss = loss_fn(logits, y)
+        loss.backward()
+
+        if model.training:
+            loss.backward()
+            opt.step()
+
+        sum_err += (logits.numpy().argmax(-1) != y.numpy()).sum().item()
+        sum_loss += loss.numpy().item() * batch_size
+
+    return sum_err / len(dataloader.dataset), sum_loss / len(dataloader.dataset)
 
 
 def train_mnist(
@@ -55,9 +79,30 @@ def train_mnist(
     data_dir="data",
 ):
     np.random.seed(4)
-    ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
-    ### END YOUR SOLUTION
+
+    # Train Data
+    train_img_path = os.path.join(data_dir, "train-images-idx3-ubyte.gz")
+    train_lbl_path = os.path.join(data_dir, "train-labels-idx1-ubyte.gz")
+    train_dataset = ndl.data.MNISTDataset(train_img_path, train_lbl_path)
+    train_loader = ndl.data.DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
+
+    # Test Data
+    test_img_path = os.path.join(data_dir, "t10k-images-idx3-ubyte.gz")
+    test_lbl_path = os.path.join(data_dir, "t10k-labels-idx1-ubyte.gz")
+    test_dataset = ndl.data.MNISTDataset(test_img_path, test_lbl_path)
+    test_loader = ndl.data.DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=False)
+    
+    # Model & Optimizer
+    model = MLPResNet(28 * 28, hidden_dim)
+    opt = optimizer(model.parameters(), lr=lr, weight_decay=weight_decay)
+
+    # Training
+    for _ in range(epochs):
+        train_err, train_loss = epoch(train_loader, model, opt)
+
+    # Evaluation
+    test_err, test_loss = epoch(test_loader, model)
+    return train_err, train_loss, test_err, test_loss
 
 
 if __name__ == "__main__":
