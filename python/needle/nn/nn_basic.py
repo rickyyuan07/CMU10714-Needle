@@ -129,9 +129,12 @@ class Sequential(Module):
 
 class SoftmaxLoss(Module):
     def forward(self, logits: Tensor, y: Tensor):
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        # Assume logits.shape = (batch_size (B), num_classes (C))
+        batch_size, num_classes = logits.shape
+        Z_logsumexp = ops.logsumexp(logits, axes=(1,))
+        y_one_hot = init.one_hot(num_classes, y, device=logits.device) # shape: (B, C)
+        Zy = ops.summation(logits * y_one_hot, axes=(1,)) # shape: (B,)
+        return ops.summation(Z_logsumexp - Zy, axes=(0,)) / batch_size
 
 
 class BatchNorm1d(Module):
