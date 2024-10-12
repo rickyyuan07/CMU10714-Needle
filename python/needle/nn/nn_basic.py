@@ -107,9 +107,8 @@ class Linear(Module):
 
 class Flatten(Module):
     def forward(self, X):
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        # (B, X_0, X_1, ...) -> (B, X_0 * X_1 * ...)
+        return ops.reshape(X, (X.shape[0], -1))
 
 
 class ReLU(Module):
@@ -213,9 +212,11 @@ class Dropout(Module):
         self.p = p
 
     def forward(self, x: Tensor) -> Tensor:
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        if not self.training:
+            return x
+
+        probs = init.randb(*x.shape, p=(1 - self.p)) # bit mask
+        return (probs * x) / (1.0 - self.p)
 
 
 class Residual(Module):
@@ -224,6 +225,4 @@ class Residual(Module):
         self.fn = fn
 
     def forward(self, x: Tensor) -> Tensor:
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        return self.fn(x) + x
