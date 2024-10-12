@@ -31,10 +31,12 @@ def MLPResNet(
     norm=nn.BatchNorm1d,
     drop_prob=0.1,
 ):
-    ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
-    ### END YOUR SOLUTION
-
+    blocks = [nn.Linear(dim, hidden_dim), nn.ReLU()]
+    for _ in range(num_blocks):
+        blocks.append(ResidualBlock(hidden_dim, hidden_dim // 2, norm, drop_prob))
+    
+    blocks.append(nn.Linear(hidden_dim, num_classes))
+    return nn.Sequential(*blocks)
 
 def epoch(dataloader, model, opt=None):
     np.random.seed(4)
