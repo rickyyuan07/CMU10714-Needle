@@ -159,14 +159,29 @@ class LayerNorm1d(Module):
         super().__init__()
         self.dim = dim
         self.eps = eps
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        self.weight = Parameter(init.ones(dim, device=device, dtype=dtype, requires_grad=True))
+        self.bias = Parameter(init.zeros(dim, device=device, dtype=dtype, requires_grad=True))
 
     def forward(self, x: Tensor) -> Tensor:
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        batch_size, n_out_feats = x.shape
+        E_x = x.sum(axes=(1,)) / n_out_feats # (batch_size,)
+        E_x = E_x.reshape((batch_size, 1)) # (batch_size, 1)
+        E_x = E_x.broadcast_to(x.shape) # (batch_size, n_out_feats)
+
+        diff = x - E_x
+        # Var = sum((x-mean)^2) / N
+        Var_x = (diff ** 2).sum(axes=(1,)) / n_out_feats # (batch_size,)
+        Var_x = Var_x.reshape((batch_size, 1)) # (batch_size, 1)
+        Var_x = Var_x.broadcast_to(x.shape) # (batch_size, n_out_feats)
+
+        x_norm = (x - E_x) / (Var_x + self.eps) ** 0.5 # (batch_size, n_out_feats)
+
+        w = self.weight.reshape((1, n_out_feats)) # (1, n_out_feats)
+        w = w.broadcast_to(x.shape) # (batch_size, n_out_feats)
+        b = self.bias.reshape((1, n_out_feats)) # (1, n_out_feats)
+        b = b.broadcast_to(x.shape) # (batch_size, n_out_feats)
+        
+        return w * x_norm + b
 
 
 class Dropout(Module):
