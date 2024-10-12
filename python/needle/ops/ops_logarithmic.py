@@ -7,16 +7,18 @@ from .ops_mathematic import *
 
 import numpy as array_api
 
-## TODO: Modify for better simplicity
 class LogSoftmax(TensorOp):
     def compute(self, Z):
         Z -= Z.max(-1, keepdims=True)
         return Z - array_api.log(array_api.exp(Z).sum(-1, keepdims=True))
 
     def gradient(self, out_grad, node):
+        # https://indii.org/blog/gradients-of-softmax-and-logsumexp/
+        # d logsoftmax(Z))/ dZ = d (Z - logsumexp(Z)) / dZ
+        # = 1 - d logsumexp(Z) / dZ = 1 - softmax(Z)
         Z = node.inputs[0]
-        softmax_grad = exp(logsoftmax(Z))  # softmax(Z)
-        return out_grad - softmax_grad * array_api.sum(out_grad.realize_cached_data(), axis=-1, keepdims=True)
+        softmax = exp(logsoftmax(Z)) # softmax(Z)
+        return out_grad - softmax * array_api.sum(out_grad.numpy(), axis=-1, keepdims=True)
 
 
 def logsoftmax(a):
@@ -28,38 +30,41 @@ def logsoftmax(a):
 class LogSumExp(TensorOp):
     def __init__(self, axes: Optional[tuple] = None):
         self.axes = axes
+        self.max_Z = None # for reuse in gradient
 
     def compute(self, Z):
-        max_Z = array_api.max(Z, axis=self.axes, keepdims=True)
-        self.max_Z = max_Z
-        max_Z_reduced = array_api.max(Z, axis=self.axes)
+        self.max_Z = array_api.max(Z, axis=self.axes, keepdims=True)
 
-        diff = Z - max_Z # implicit broadcasting
+        diff = Z - self.max_Z
         e = array_api.exp(diff)
         se = array_api.sum(e, axis=self.axes) # don't keepdims
         lse = array_api.log(se)
-        return lse + max_Z_reduced # prevent implicit broadcasting
+        return lse + self.max_Z.reshape(lse.shape)
     
     def gradient(self, out_grad, node):
-        Z = node.inputs[0]
-        # node.gradient
+        Z = node.inputs[0] # Tensor
         
-        e = exp(Z - self.max_Z)
-        se = summation(e, axes=self.axes)
-        lse = log(se)
-        grad = Log().gradient(out_grad, lse)
-        grad = Summation(axes=self.axes).gradient(grad, se)
-        grad = Exp().gradient(grad, e)
+        ## Approach 1: Using the chain rule
+        # e = exp(Z - self.max_Z)
+        # se = summation(e, axes=self.axes)
+        # lse = log(se)
+        # grad = Log().gradient(out_grad, lse)
+        # grad = Summation(axes=self.axes).gradient(grad, se)
+        # grad = Exp().gradient(grad, e)
+        # return grad
 
-        # print(Z.shape)
-        # max_Z = array_api.max(Z, axis=self.axes, keepdims=True)
+        ## Approach 2: https://indii.org/blog/gradients-of-softmax-and-logsumexp/
+        # Construct reduced shape with dim kept
+        shape = list(Z.shape)
+        axes = range(len(shape)) if self.axes is None else self.axes
+        for axis in axes:
+            shape[axis] = 1
 
-        # print(exp(Z).shape, summation(exp(Z), axes=self.axes).shape)
-        # aa = exp(Z) / summation(exp(Z), axes=self.axes)
+        # Note: by default summation will not keepdims
+        softmax = exp(Z - self.max_Z) / summation(exp(Z - self.max_Z), axes=self.axes).reshape(shape)
+        out_grad = out_grad.reshape(shape).broadcast_to(Z.shape)
 
-
-
-        return grad
+        return out_grad * softmax
 
 
 def logsumexp(a, axes=None):
