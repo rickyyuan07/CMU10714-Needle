@@ -58,14 +58,26 @@ class DataLoader:
             self.ordering = np.array_split(np.arange(len(dataset)), 
                                            range(batch_size, len(dataset), batch_size))
 
+        self.current_batch_idx = 0
+
     def __iter__(self):
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        # Reset the state for a new iteration
+        self.current_batch_idx = 0
+        if self.shuffle:
+            order = np.arange(len(self.dataset))
+            np.random.shuffle(order)
+            self.ordering = np.array_split(order, 
+                                           range(self.batch_size, len(self.dataset), self.batch_size))
         return self
 
     def __next__(self):
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
-
+        if self.current_batch_idx >= len(self.ordering):
+            raise StopIteration
+        
+        batch_indices = self.ordering[self.current_batch_idx]
+        datas = self.dataset[batch_indices]
+        self.current_batch_idx += 1
+        
+        # import pdb; pdb.set_trace()
+        # Return the actual data corresponding to the batch indices
+        return [Tensor(data) for data in datas]
