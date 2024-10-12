@@ -143,15 +143,38 @@ class BatchNorm1d(Module):
         self.dim = dim
         self.eps = eps
         self.momentum = momentum
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        # running_mean and running_var are not parameters, we are not computing their gradients
+        self.running_mean = init.zeros(dim, device=device, dtype=dtype, requires_grad=False)
+        self.running_var = init.ones(dim, device=device, dtype=dtype, requires_grad=False)
+        self.weight = Parameter(init.ones(dim, device=device, dtype=dtype, requires_grad=True))
+        self.bias = Parameter(init.zeros(dim, device=device, dtype=dtype, requires_grad=True))
 
     def forward(self, x: Tensor) -> Tensor:
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        batch_size, n_out_feats = x.shape
+        if self.training:
+            E_x = x.sum(axes=(0,)) / batch_size # (n_out_feats,)
+            self.running_mean = (1 - self.momentum) * self.running_mean + self.momentum * E_x.numpy()
+            E_x = E_x.reshape((1, n_out_feats)) # (1, n_out_feats)
+            E_x = E_x.broadcast_to(x.shape) # (batch_size, n_out_feats)
 
+            diff = x - E_x
+            Var_x = (diff ** 2).sum(axes=(0,)) / batch_size # (n_out_feats,)
+            self.running_var = (1 - self.momentum) * self.running_var + self.momentum * Var_x.numpy()
+            Var_x = Var_x.reshape((1, n_out_feats)) # (1, n_out_feats)
+            Var_x = Var_x.broadcast_to(x.shape) # (batch_size, n_out_feats) 
+
+            x_norm = (x - E_x) / (Var_x + self.eps) ** 0.5 # (batch_size, n_out_feats)
+        else:
+            mean = self.running_mean.reshape((1, n_out_feats)).broadcast_to(x.shape) # (batch_size, n_out_feats)
+            var = self.running_var.broadcast_to(x.shape) # (batch_size, n_out_feats)
+            x_norm = (x - mean) / (var + self.eps) ** 0.5 # (batch_size, n_out_feats)
+
+        w = self.weight.reshape((1, n_out_feats)) # (1, n_out_feats)
+        w = w.broadcast_to(x.shape) # (batch_size, n_out_feats)
+        b = self.bias.reshape((1, n_out_feats)) # (1, n_out_feats)
+        b = b.broadcast_to(x.shape) # (batch_size, n_out_feats)
+
+        return w * x_norm + b
 
 
 class LayerNorm1d(Module):
