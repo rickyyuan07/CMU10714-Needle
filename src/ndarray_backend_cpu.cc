@@ -61,9 +61,27 @@ void Compact(const AlignedArray& a, AlignedArray* out, std::vector<int32_t> shap
    *  void (you need to modify out directly, rather than returning anything; this is true for all the
    *  function will implement here, so we won't repeat this note.)
    */
-  /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
-  /// END SOLUTION
+  size_t n_dim = shape.size();
+  std::vector<int32_t> index(n_dim, 0);  // Index vector, treated as a digit counter
+
+  for (size_t cnt = 0;; ++cnt) {
+    // Calculate the linear position in the input array a using strides and offset
+    size_t pos = offset;
+    for (size_t i = 0; i < n_dim; ++i) {
+      pos += index[i] * strides[i];
+    }
+    out->ptr[cnt] = a.ptr[pos];
+
+    // Increment the indices like a multi-digit counter, starting from the rightest dimension
+    for (int dim = n_dim - 1; dim >= 0; --dim) {
+      index[dim]++;
+      if (index[dim] < shape[dim]) {  // No carry-over needed
+        break;
+      }
+      index[dim] = 0;        // Reset and carry to the next higher dimension
+      if (dim == 0) return;  // Already processed all dimensions, exit the loop and return
+    }
+  }
 }
 
 void EwiseSetitem(const AlignedArray& a, AlignedArray* out, std::vector<int32_t> shape,
@@ -78,9 +96,27 @@ void EwiseSetitem(const AlignedArray& a, AlignedArray* out, std::vector<int32_t>
    *   strides: strides of the *out* array (not a, which has compact strides)
    *   offset: offset of the *out* array (not a, which has zero offset, being compact)
    */
-  /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
-  /// END SOLUTION
+  size_t cnt = 0;
+  std::vector<int32_t> index(shape.size(), 0);  // Index vector, treated as a digit counter
+
+  for (size_t cnt = 0;; ++cnt) {
+    // Calculate the linear position in the output array out using strides and offset
+    size_t pos = offset;
+    for (size_t i = 0; i < shape.size(); ++i) {
+      pos += index[i] * strides[i];
+    }
+    out->ptr[pos] = a.ptr[cnt];
+
+    // Increment the indices like a multi-digit counter, starting from the rightest dimension
+    for (int dim = shape.size() - 1; dim >= 0; --dim) {
+      index[dim]++;
+      if (index[dim] < shape[dim]) {  // No carry-over needed
+        break;
+      }
+      index[dim] = 0;        // Reset and carry to the next higher dimension
+      if (dim == 0) return;  // Already processed all dimensions, exit the loop and return
+    }
+  }
 }
 
 void ScalarSetitem(const size_t size, scalar_t val, AlignedArray* out, std::vector<int32_t> shape,
@@ -98,10 +134,23 @@ void ScalarSetitem(const size_t size, scalar_t val, AlignedArray* out, std::vect
    *   strides: strides of the out array
    *   offset: offset of the out array
    */
+  std::vector<int32_t> index(shape.size(), 0);  // Initialize index vector
 
-  /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
-  /// END SOLUTION
+  for (size_t cnt = 0; cnt < size; ++cnt) {
+    // Calculate the linear position in the output array out using strides and offset
+    size_t pos = offset;
+    for (size_t i = 0; i < shape.size(); ++i) {
+      pos += index[i] * strides[i];
+    }
+    out->ptr[pos] = val;
+
+    // Increment the index like a multi-digit counter
+    for (int dim = shape.size() - 1; dim >= 0; --dim) {
+      index[dim]++;
+      if (index[dim] < shape[dim]) break;
+      index[dim] = 0;
+    }
+  }
 }
 
 void EwiseAdd(const AlignedArray& a, const AlignedArray& b, AlignedArray* out) {
