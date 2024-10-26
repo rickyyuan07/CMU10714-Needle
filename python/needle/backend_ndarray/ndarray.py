@@ -1,5 +1,6 @@
 import operator
 import math
+import builtins
 from functools import reduce
 import numpy as np
 from . import ndarray_backend_numpy
@@ -245,10 +246,8 @@ class NDArray:
         Returns:
             NDArray : reshaped array; this will point to thep
         """
-
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        assert self.size == prod(new_shape), "The total number of elements must be the same."
+        return self.as_strided(new_shape, NDArray.compact_strides(new_shape))
 
     def permute(self, new_axes):
         """
@@ -270,10 +269,10 @@ class NDArray:
             to the same memory as the original NDArray (i.e., just shape and
             strides changed).
         """
-
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        assert set(new_axes) == set(range(self.ndim)), "Need to permute all dimensions"
+        new_shape = tuple([self.shape[i] for i in new_axes])
+        new_strides = tuple([self.strides[i] for i in new_axes])
+        return self.as_strided(new_shape, new_strides)
 
     def broadcast_to(self, new_shape):
         """
@@ -294,10 +293,20 @@ class NDArray:
             NDArray: the new NDArray object with the new broadcast shape; should
             point to the same memory as the original array.
         """
+        assert len(new_shape) >= len(self.shape), "New shape must have equal or more dimensions than original shape."
 
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        # Prepare the strides for the broadcasted dimensions, starting from the end
+        # Missing leading dimensions by default have a stride of 0, e.g. (5,2,3) -> (6,5,2,3)
+        new_strides = [0] * len(new_shape)
+        for i in range(len(self.shape)):
+            if self.shape[-1 - i] == 1: # Broadcasting along this dimension
+                new_strides[-1 - i] = 0
+            elif self.shape[-1 - i] == new_shape[-1 - i]:
+                new_strides[-1 - i] = self.strides[-1 - i]
+            else:
+                raise ValueError("Shapes are not broadcast-compatible.")
+        
+        return self.as_strided(new_shape, tuple(new_strides))
 
     ### Get and set elements
 
@@ -362,9 +371,11 @@ class NDArray:
         )
         assert len(idxs) == self.ndim, "Need indexes equal to number of dimensions"
 
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        new_shape = tuple(1 + (sl.stop - sl.start - 1) // sl.step for sl in idxs)
+        new_strides = tuple(self.strides[i] * sl.step for i, sl in enumerate(idxs))
+        new_offset = self._offset + builtins.sum([sl.start * self.strides[i] for i, sl in enumerate(idxs)])
+
+        return self.make(new_shape, strides=new_strides, device=self.device, handle=self._handle, offset=new_offset)
 
     def __setitem__(self, idxs, other):
         """Set the values of a view into an array, using the same semantics
