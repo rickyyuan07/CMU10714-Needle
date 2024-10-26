@@ -272,11 +272,90 @@ void ScalarAdd(const CudaArray& a, scalar_t val, CudaArray* out) {
  * signatures above.
  */
 
+// Device Functions for Basic Operations
+__device__ scalar_t Add(scalar_t x, scalar_t y) { return x + y; }
+__device__ scalar_t Sub(scalar_t x, scalar_t y) { return x - y; }
+__device__ scalar_t Mul(scalar_t x, scalar_t y) { return x * y; }
+__device__ scalar_t Div(scalar_t x, scalar_t y) { return x / y; }
+__device__ scalar_t Eq(scalar_t x, scalar_t y) { return x == y; }
+__device__ scalar_t Ge(scalar_t x, scalar_t y) { return x >= y; }
+
+// Macro Definitions for Kernels
+#define DEFINE_EWISE_KERNEL(name, func)                       \
+__global__ void name(const scalar_t* a, const scalar_t* b,    \
+                     scalar_t* out, size_t size) {            \
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;         \
+  if (gid < size) { out[gid] = func(a[gid], b[gid]); }        \
+}
+#define DEFINE_SCALAR_KERNEL(name, func)                      \
+__global__ void name(const scalar_t* a, scalar_t val,         \
+                     scalar_t* out, size_t size) {            \
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;         \
+  if (gid < size) { out[gid] = func(a[gid], val); }           \
+}
+#define DEFINE_UNARY_KERNEL(kernel_name, func)                \
+__global__ void kernel_name(const scalar_t* a, scalar_t* out, \
+                            size_t size) {                    \
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;         \
+  if (gid < size) { out[gid] = func(a[gid]); }                \
+}
+
+// Macro Definitions for Host Functions
+#define DEFINE_EWISE_HOST_FUNC(func_name, kernel_name)                \
+void func_name(const CudaArray& a, const CudaArray& b, CudaArray& out) { \
+  CudaDims dim = CudaOneDim(out.size);                                \
+  kernel_name<<<dim.grid, dim.block>>>(a.ptr, b.ptr, out.ptr, out.size); \
+}
+#define DEFINE_SCALAR_HOST_FUNC(func_name, kernel_name)               \
+void func_name(const CudaArray& a, scalar_t val, CudaArray& out) {    \
+  CudaDims dim = CudaOneDim(out.size);                                \
+  kernel_name<<<dim.grid, dim.block>>>(a.ptr, val, out.ptr, out.size); \
+}
+#define DEFINE_UNARY_HOST_FUNC(func_name, kernel_name)                \
+void func_name(const CudaArray& a, CudaArray& out) {                  \
+  CudaDims dim = CudaOneDim(out.size);                                \
+  kernel_name<<<dim.grid, dim.block>>>(a.ptr, out.ptr, out.size);     \
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Elementwise and scalar operations
 ////////////////////////////////////////////////////////////////////////////////
 
+// Defining Kernels with Macros
+DEFINE_EWISE_KERNEL(EwiseSubKernel, Sub);
+DEFINE_SCALAR_KERNEL(ScalarSubKernel, Sub);
+DEFINE_EWISE_KERNEL(EwiseMulKernel, Mul);
+DEFINE_SCALAR_KERNEL(ScalarMulKernel, Mul);
+DEFINE_EWISE_KERNEL(EwiseDivKernel, Div);
+DEFINE_SCALAR_KERNEL(ScalarDivKernel, Div);
+DEFINE_EWISE_KERNEL(EwiseMaximumKernel, max);
+DEFINE_SCALAR_KERNEL(ScalarMaximumKernel, max);
+DEFINE_EWISE_KERNEL(EwiseEqKernel, Eq);
+DEFINE_SCALAR_KERNEL(ScalarEqKernel, Eq);
+DEFINE_EWISE_KERNEL(EwiseGeKernel, Ge);
+DEFINE_SCALAR_KERNEL(ScalarGeKernel, Ge);
+DEFINE_SCALAR_KERNEL(ScalarPowerKernel, pow);
+DEFINE_UNARY_KERNEL(EwiseLogKernel, log);
+DEFINE_UNARY_KERNEL(EwiseExpKernel, exp);
+DEFINE_UNARY_KERNEL(EwiseTanhKernel, tanh);
+
+// Defining Host Functions with Macros
+DEFINE_EWISE_HOST_FUNC(EwiseSub, EwiseSubKernel);
+DEFINE_SCALAR_HOST_FUNC(ScalarSub, ScalarSubKernel);
+DEFINE_EWISE_HOST_FUNC(EwiseMul, EwiseMulKernel);
+DEFINE_SCALAR_HOST_FUNC(ScalarMul, ScalarMulKernel);
+DEFINE_EWISE_HOST_FUNC(EwiseDiv, EwiseDivKernel);
+DEFINE_SCALAR_HOST_FUNC(ScalarDiv, ScalarDivKernel);
+DEFINE_EWISE_HOST_FUNC(EwiseMaximum, EwiseMaximumKernel);
+DEFINE_SCALAR_HOST_FUNC(ScalarMaximum, ScalarMaximumKernel);
+DEFINE_EWISE_HOST_FUNC(EwiseEq, EwiseEqKernel);
+DEFINE_SCALAR_HOST_FUNC(ScalarEq, ScalarEqKernel);
+DEFINE_EWISE_HOST_FUNC(EwiseGe, EwiseGeKernel);
+DEFINE_SCALAR_HOST_FUNC(ScalarGe, ScalarGeKernel);
+DEFINE_SCALAR_HOST_FUNC(ScalarPower, ScalarPowerKernel);
+DEFINE_UNARY_HOST_FUNC(EwiseLog, EwiseLogKernel);
+DEFINE_UNARY_HOST_FUNC(EwiseExp, EwiseExpKernel);
+DEFINE_UNARY_HOST_FUNC(EwiseTanh, EwiseTanhKernel);
 
 void Matmul(const CudaArray& a, const CudaArray& b, CudaArray* out, uint32_t M, uint32_t N,
             uint32_t P) {
@@ -391,22 +470,22 @@ PYBIND11_MODULE(ndarray_backend_cuda, m) {
   m.def("ewise_add", EwiseAdd);
   m.def("scalar_add", ScalarAdd);
 
-  // m.def("ewise_mul", EwiseMul);
-  // m.def("scalar_mul", ScalarMul);
-  // m.def("ewise_div", EwiseDiv);
-  // m.def("scalar_div", ScalarDiv);
-  // m.def("scalar_power", ScalarPower);
+  m.def("ewise_mul", EwiseMul);
+  m.def("scalar_mul", ScalarMul);
+  m.def("ewise_div", EwiseDiv);
+  m.def("scalar_div", ScalarDiv);
+  m.def("scalar_power", ScalarPower);
 
-  // m.def("ewise_maximum", EwiseMaximum);
-  // m.def("scalar_maximum", ScalarMaximum);
-  // m.def("ewise_eq", EwiseEq);
-  // m.def("scalar_eq", ScalarEq);
-  // m.def("ewise_ge", EwiseGe);
-  // m.def("scalar_ge", ScalarGe);
+  m.def("ewise_maximum", EwiseMaximum);
+  m.def("scalar_maximum", ScalarMaximum);
+  m.def("ewise_eq", EwiseEq);
+  m.def("scalar_eq", ScalarEq);
+  m.def("ewise_ge", EwiseGe);
+  m.def("scalar_ge", ScalarGe);
 
-  // m.def("ewise_log", EwiseLog);
-  // m.def("ewise_exp", EwiseExp);
-  // m.def("ewise_tanh", EwiseTanh);
+  m.def("ewise_log", EwiseLog);
+  m.def("ewise_exp", EwiseExp);
+  m.def("ewise_tanh", EwiseTanh);
 
   // m.def("matmul", Matmul);
 
