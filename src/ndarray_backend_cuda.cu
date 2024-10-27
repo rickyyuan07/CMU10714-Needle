@@ -273,32 +273,36 @@ void ScalarAdd(const CudaArray& a, scalar_t val, CudaArray* out) {
  */
 
 // Device Functions for Basic Operations
-__device__ scalar_t Add(scalar_t x, scalar_t y) { return x + y; }
-__device__ scalar_t Sub(scalar_t x, scalar_t y) { return x - y; }
 __device__ scalar_t Mul(scalar_t x, scalar_t y) { return x * y; }
 __device__ scalar_t Div(scalar_t x, scalar_t y) { return x / y; }
 __device__ scalar_t Eq(scalar_t x, scalar_t y) { return x == y; }
 __device__ scalar_t Ge(scalar_t x, scalar_t y) { return x >= y; }
 
 // Macro Definitions for Kernels
-#define DEFINE_EWISE_KERNEL(name, func)                       \
-__global__ void name(const scalar_t* a, const scalar_t* b,    \
-                     scalar_t* out, size_t size) {            \
-  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;         \
-  if (gid < size) { out[gid] = func(a[gid], b[gid]); }        \
-}
-#define DEFINE_SCALAR_KERNEL(name, func)                      \
-__global__ void name(const scalar_t* a, scalar_t val,         \
-                     scalar_t* out, size_t size) {            \
-  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;         \
-  if (gid < size) { out[gid] = func(a[gid], val); }           \
-}
-#define DEFINE_UNARY_KERNEL(kernel_name, func)                \
-__global__ void kernel_name(const scalar_t* a, scalar_t* out, \
-                            size_t size) {                    \
-  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;         \
-  if (gid < size) { out[gid] = func(a[gid]); }                \
-}
+#define DEFINE_EWISE_KERNEL(kernel_name, opr)                       \
+  __global__ void kernel_name(const scalar_t* a, const scalar_t* b, \
+                              scalar_t* out, size_t size) {         \
+    size_t gid = blockIdx.x * blockDim.x + threadIdx.x;             \
+    if (gid < size) {                                               \
+      out[gid] = opr(a[gid], b[gid]);                               \
+    }                                                               \
+  }
+#define DEFINE_SCALAR_KERNEL(kernel_name, opr)                 \
+  __global__ void kernel_name(const scalar_t* a, scalar_t val, \
+                              scalar_t* out, size_t size) {    \
+    size_t gid = blockIdx.x * blockDim.x + threadIdx.x;        \
+    if (gid < size) {                                          \
+      out[gid] = opr(a[gid], val);                             \
+    }                                                          \
+  }
+#define DEFINE_UNARY_KERNEL(kernel_name, opr)                   \
+  __global__ void kernel_name(const scalar_t* a, scalar_t* out, \
+                              size_t size) {                    \
+    size_t gid = blockIdx.x * blockDim.x + threadIdx.x;         \
+    if (gid < size) {                                           \
+      out[gid] = opr(a[gid]);                                   \
+    }                                                           \
+  }
 
 // Macro Definitions for Host Functions
 #define DEFINE_EWISE_HOST_FUNC(func_name, kernel_name)                \
@@ -322,45 +326,39 @@ void func_name(const CudaArray& a, CudaArray& out) {                  \
 ////////////////////////////////////////////////////////////////////////////////
 
 // Defining Kernels with Macros
-DEFINE_EWISE_KERNEL(EwiseSubKernel, Sub);
-DEFINE_SCALAR_KERNEL(ScalarSubKernel, Sub);
 DEFINE_EWISE_KERNEL(EwiseMulKernel, Mul);
 DEFINE_SCALAR_KERNEL(ScalarMulKernel, Mul);
 DEFINE_EWISE_KERNEL(EwiseDivKernel, Div);
 DEFINE_SCALAR_KERNEL(ScalarDivKernel, Div);
+DEFINE_SCALAR_KERNEL(ScalarPowerKernel, pow);
 DEFINE_EWISE_KERNEL(EwiseMaximumKernel, max);
 DEFINE_SCALAR_KERNEL(ScalarMaximumKernel, max);
 DEFINE_EWISE_KERNEL(EwiseEqKernel, Eq);
 DEFINE_SCALAR_KERNEL(ScalarEqKernel, Eq);
 DEFINE_EWISE_KERNEL(EwiseGeKernel, Ge);
 DEFINE_SCALAR_KERNEL(ScalarGeKernel, Ge);
-DEFINE_SCALAR_KERNEL(ScalarPowerKernel, pow);
 DEFINE_UNARY_KERNEL(EwiseLogKernel, log);
 DEFINE_UNARY_KERNEL(EwiseExpKernel, exp);
 DEFINE_UNARY_KERNEL(EwiseTanhKernel, tanh);
 
 // Defining Host Functions with Macros
-DEFINE_EWISE_HOST_FUNC(EwiseSub, EwiseSubKernel);
-DEFINE_SCALAR_HOST_FUNC(ScalarSub, ScalarSubKernel);
 DEFINE_EWISE_HOST_FUNC(EwiseMul, EwiseMulKernel);
 DEFINE_SCALAR_HOST_FUNC(ScalarMul, ScalarMulKernel);
 DEFINE_EWISE_HOST_FUNC(EwiseDiv, EwiseDivKernel);
 DEFINE_SCALAR_HOST_FUNC(ScalarDiv, ScalarDivKernel);
+DEFINE_SCALAR_HOST_FUNC(ScalarPower, ScalarPowerKernel);
 DEFINE_EWISE_HOST_FUNC(EwiseMaximum, EwiseMaximumKernel);
 DEFINE_SCALAR_HOST_FUNC(ScalarMaximum, ScalarMaximumKernel);
 DEFINE_EWISE_HOST_FUNC(EwiseEq, EwiseEqKernel);
 DEFINE_SCALAR_HOST_FUNC(ScalarEq, ScalarEqKernel);
 DEFINE_EWISE_HOST_FUNC(EwiseGe, EwiseGeKernel);
 DEFINE_SCALAR_HOST_FUNC(ScalarGe, ScalarGeKernel);
-DEFINE_SCALAR_HOST_FUNC(ScalarPower, ScalarPowerKernel);
 DEFINE_UNARY_HOST_FUNC(EwiseLog, EwiseLogKernel);
 DEFINE_UNARY_HOST_FUNC(EwiseExp, EwiseExpKernel);
 DEFINE_UNARY_HOST_FUNC(EwiseTanh, EwiseTanhKernel);
 
-
 __global__ void MatmulKernel(const scalar_t* a, const scalar_t* b, scalar_t* out, 
                              uint32_t M, uint32_t N, uint32_t P) {
-  // naive implementation
   // size_t i = blockIdx.x * blockDim.x + threadIdx.x; 
   // size_t j = blockIdx.y * blockDim.y + threadIdx.y;
   // if (i < M && j < P) {
@@ -379,23 +377,24 @@ __global__ void MatmulKernel(const scalar_t* a, const scalar_t* b, scalar_t* out
   int col = blockIdx.y * TILE + threadIdx.y;
 
   scalar_t ans = 0;
+
   // Loop over tiles of A and B required to compute out[row, col]
   for (int t = 0; t < N; t += TILE) {
     // Load tiles into shared memory, each thread loads one element
     if (row < M && t + threadIdx.y < N) {
       tile_a[threadIdx.x][threadIdx.y] = a[row * N + t + threadIdx.y];
     }
-    else { // If out of bounds, load 0
+    else {
       tile_a[threadIdx.x][threadIdx.y] = 0.0;
     }
 
     if (t + threadIdx.x < N && col < P) {
       tile_b[threadIdx.x][threadIdx.y] = b[(t + threadIdx.x) * P + col];
     }
-    else { // If out of bounds, load 0
+    else {
       tile_b[threadIdx.x][threadIdx.y] = 0.0;
     }
-    __syncthreads();  // Synchronize to ensure all elements of the tile are loaded
+    __syncthreads();  // Synchronize to ensure all elements of the tiles are loaded
 
     // Each thread computes one element of the output tile
     for (int k = 0; k < TILE; ++k) {
@@ -433,7 +432,7 @@ void Matmul(const CudaArray& a, const CudaArray& b, CudaArray* out, uint32_t M, 
    *   N: columns of a / rows of b
    *   P: columns of b / out
    */
-  // P is not necessary multiple of TILE, create padding if necessary
+  // P is not necessary multiple of TILE
   dim3 grid((M + TILE - 1) / TILE, (P + TILE - 1) / TILE);
   dim3 block(TILE, TILE);
 

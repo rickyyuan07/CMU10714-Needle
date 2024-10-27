@@ -171,7 +171,6 @@ void ScalarAdd(const AlignedArray& a, scalar_t val, AlignedArray* out) {
   }
 }
 
-
 /**
  * In the code the follows, use the above template to create analogous element-wise
  * and and scalar operators for the following functions.  See the numpy backend for
@@ -191,84 +190,40 @@ void ScalarAdd(const AlignedArray& a, scalar_t val, AlignedArray* out) {
  * functions (however you want to do so, as long as the functions match the proper)
  * signatures above.
  */
-
-// Template function for elementwise operations
-template <typename Func>
-void EwiseOp(const AlignedArray& a, const AlignedArray& b, AlignedArray* out, Func func) {
-  for (size_t i = 0; i < a.size; ++i) {
-    out->ptr[i] = func(a.ptr[i], b.ptr[i]);
+#define DEFINE_EWISE_FUNC(func, opr)                                           \
+  void func(const AlignedArray& a, const AlignedArray& b, AlignedArray* out) { \
+    for (size_t i = 0; i < a.size; ++i) {                                      \
+      out->ptr[i] = opr(a.ptr[i], b.ptr[i]);                                   \
+    }                                                                          \
   }
-}
-
-// Template function for scalar operations
-template <typename Func>
-void ScalarOp(const AlignedArray& a, scalar_t val, AlignedArray* out, Func func) {
-  for (size_t i = 0; i < a.size; ++i) {
-    out->ptr[i] = func(a.ptr[i], val);
+#define DEFINE_SCALAR_FUNC(func, opr)                                 \
+  void func(const AlignedArray& a, scalar_t val, AlignedArray* out) { \
+    for (size_t i = 0; i < a.size; ++i) {                             \
+      out->ptr[i] = opr(a.ptr[i], val);                               \
+    }                                                                 \
   }
-}
-
-void EwiseMul(const AlignedArray& a, const AlignedArray& b, AlignedArray* out) {
-  EwiseOp(a, b, out, std::multiplies<scalar_t>());
-}
-
-void ScalarMul(const AlignedArray& a, scalar_t val, AlignedArray* out) {
-  ScalarOp(a, val, out, std::multiplies<scalar_t>());
-}
-
-void EwiseDiv(const AlignedArray& a, const AlignedArray& b, AlignedArray* out) {
-  EwiseOp(a, b, out, std::divides<scalar_t>());
-}
-
-void ScalarDiv(const AlignedArray& a, scalar_t val, AlignedArray* out) {
-  ScalarOp(a, val, out, std::divides<scalar_t>());
-}
-
-void ScalarPower(const AlignedArray& a, scalar_t val, AlignedArray* out) {
-  ScalarOp(a, val, out, [](scalar_t x, scalar_t y) { return std::pow(x, y); });
-}
-
-void EwiseMaximum(const AlignedArray& a, const AlignedArray& b, AlignedArray* out) {
-  EwiseOp(a, b, out, [](scalar_t x, scalar_t y) { return std::max(x, y); });
-}
-
-void ScalarMaximum(const AlignedArray& a, scalar_t val, AlignedArray* out) {
-  ScalarOp(a, val, out, [](scalar_t x, scalar_t y) { return std::max(x, y); });
-}
-
-void EwiseEq(const AlignedArray& a, const AlignedArray& b, AlignedArray* out) {
-  EwiseOp(a, b, out, std::equal_to<scalar_t>());
-}
-
-void ScalarEq(const AlignedArray& a, scalar_t val, AlignedArray* out) {
-  ScalarOp(a, val, out, std::equal_to<scalar_t>());
-}
-
-void EwiseGe(const AlignedArray& a, const AlignedArray& b, AlignedArray* out) {
-  EwiseOp(a, b, out, std::greater_equal<scalar_t>());
-}
-
-void ScalarGe(const AlignedArray& a, scalar_t val, AlignedArray* out) {
-  ScalarOp(a, val, out, std::greater_equal<scalar_t>());
-}
-
-void EwiseLog(const AlignedArray& a, AlignedArray* out) {
-  for (size_t i = 0; i < a.size; ++i) {
-    out->ptr[i] = std::log(a.ptr[i]);
+#define DEFINE_UNARY_FUNC(func, opr)                    \
+  void func(const AlignedArray& a, AlignedArray* out) { \
+    for (size_t i = 0; i < a.size; ++i) {               \
+      out->ptr[i] = opr(a.ptr[i]);                      \
+    }                                                   \
   }
-}
 
-void EwiseExp(const AlignedArray& a, AlignedArray* out) {
-  for (size_t i = 0; i < a.size; ++i) {
-    out->ptr[i] = std::exp(a.ptr[i]);
-  }
-}
+DEFINE_EWISE_FUNC(EwiseMul, std::multiplies<scalar_t>());
+DEFINE_SCALAR_FUNC(ScalarMul, std::multiplies<scalar_t>());
+DEFINE_EWISE_FUNC(EwiseDiv, std::divides<scalar_t>());
+DEFINE_SCALAR_FUNC(ScalarDiv, std::divides<scalar_t>());
+DEFINE_SCALAR_FUNC(ScalarPower, std::pow);
+DEFINE_EWISE_FUNC(EwiseMaximum, std::max);
+DEFINE_SCALAR_FUNC(ScalarMaximum, std::max);
+DEFINE_EWISE_FUNC(EwiseEq, std::equal_to<scalar_t>());
+DEFINE_SCALAR_FUNC(ScalarEq, std::equal_to<scalar_t>());
+DEFINE_EWISE_FUNC(EwiseGe, std::greater_equal<scalar_t>());
+DEFINE_SCALAR_FUNC(ScalarGe, std::greater_equal<scalar_t>());
 
-void EwiseTanh(const AlignedArray& a, AlignedArray* out) {
-  for (size_t i = 0; i < a.size; ++i) {
-    out->ptr[i] = std::tanh(a.ptr[i]);
-  }
-}
+DEFINE_UNARY_FUNC(EwiseLog, std::log);
+DEFINE_UNARY_FUNC(EwiseExp, std::exp);
+DEFINE_UNARY_FUNC(EwiseTanh, std::tanh);
 
 void Matmul(const AlignedArray& a, const AlignedArray& b, AlignedArray* out, uint32_t m, uint32_t n,
             uint32_t p) {
