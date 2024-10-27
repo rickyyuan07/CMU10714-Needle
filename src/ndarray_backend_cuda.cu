@@ -357,6 +357,59 @@ DEFINE_UNARY_HOST_FUNC(EwiseLog, EwiseLogKernel);
 DEFINE_UNARY_HOST_FUNC(EwiseExp, EwiseExpKernel);
 DEFINE_UNARY_HOST_FUNC(EwiseTanh, EwiseTanhKernel);
 
+
+__global__ void MatmulKernel(const scalar_t* a, const scalar_t* b, scalar_t* out, 
+                             uint32_t M, uint32_t N, uint32_t P) {
+  // naive implementation
+  // size_t i = blockIdx.x * blockDim.x + threadIdx.x; 
+  // size_t j = blockIdx.y * blockDim.y + threadIdx.y;
+  // if (i < M && j < P) {
+  //   out[i * P + j] = 0;
+  //   for (int k = 0; k < N; k++) {
+  //     out[i * P + j] += a[i * N + k] * b[k * P + j];
+  //   }
+  // }
+  
+  // Storing tiles into shared memory, which is local to each block and faster
+  __shared__ scalar_t tile_a[TILE][TILE];
+  __shared__ scalar_t tile_b[TILE][TILE];
+
+  // Compute row and column index in `out`
+  int row = blockIdx.x * TILE + threadIdx.x;
+  int col = blockIdx.y * TILE + threadIdx.y;
+
+  scalar_t ans = 0;
+  // Loop over tiles of A and B required to compute out[row, col]
+  for (int t = 0; t < N; t += TILE) {
+    // Load tiles into shared memory, each thread loads one element
+    if (row < M && t + threadIdx.y < N) {
+      tile_a[threadIdx.x][threadIdx.y] = a[row * N + t + threadIdx.y];
+    }
+    else { // If out of bounds, load 0
+      tile_a[threadIdx.x][threadIdx.y] = 0.0;
+    }
+
+    if (t + threadIdx.x < N && col < P) {
+      tile_b[threadIdx.x][threadIdx.y] = b[(t + threadIdx.x) * P + col];
+    }
+    else { // If out of bounds, load 0
+      tile_b[threadIdx.x][threadIdx.y] = 0.0;
+    }
+    __syncthreads();  // Synchronize to ensure all elements of the tile are loaded
+
+    // Each thread computes one element of the output tile
+    for (int k = 0; k < TILE; ++k) {
+      ans += tile_a[threadIdx.x][k] * tile_b[k][threadIdx.y];
+    }
+    __syncthreads();  // Ensure all computations in this tile are complete
+  }
+
+  // Write the result to the output matrix `out`
+  if (row < M && col < P) {
+    out[row * P + col] = ans;
+  }
+}
+
 void Matmul(const CudaArray& a, const CudaArray& b, CudaArray* out, uint32_t M, uint32_t N,
             uint32_t P) {
   /**
@@ -380,10 +433,11 @@ void Matmul(const CudaArray& a, const CudaArray& b, CudaArray* out, uint32_t M, 
    *   N: columns of a / rows of b
    *   P: columns of b / out
    */
+  // P is not necessary multiple of TILE, create padding if necessary
+  dim3 grid((M + TILE - 1) / TILE, (P + TILE - 1) / TILE);
+  dim3 block(TILE, TILE);
 
-  /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
-  /// END SOLUTION
+  MatmulKernel<<<grid, block>>>(a.ptr, b.ptr, out->ptr, M, N, P);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -502,7 +556,7 @@ PYBIND11_MODULE(ndarray_backend_cuda, m) {
   m.def("ewise_exp", EwiseExp);
   m.def("ewise_tanh", EwiseTanh);
 
-  // m.def("matmul", Matmul);
+  m.def("matmul", Matmul);
 
   m.def("reduce_max", ReduceMax);
   m.def("reduce_sum", ReduceSum);
