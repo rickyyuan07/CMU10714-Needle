@@ -14,9 +14,6 @@ TENSOR_COUNTER = 0
 # NOTE: we will import numpy as the array_api
 # as the backend for our computations, this line will change in later homeworks
 
-import numpy as array_api
-NDArray = numpy.ndarray
-
 from .backend_selection import array_api, NDArray, default_device
 
 class Op:
@@ -216,7 +213,7 @@ class Tensor(Value):
                     array.numpy(), device=device, dtype=dtype
                 )
         else:
-            device = device if device else default_device()
+            device = device if device else cpu()
             cached_data = Tensor._array_from_numpy(array, device=device, dtype=dtype)
 
         self._init(
@@ -360,10 +357,10 @@ class Tensor(Value):
         return needle.ops.Transpose(axes)(self)
 
 
-
-
     __radd__ = __add__
     __rmul__ = __mul__
+
+
 
 def compute_gradient_of_variables(output_tensor, out_grad):
     """Take gradient of output node with respect to each node in node_list.

@@ -61,9 +61,27 @@ void Compact(const AlignedArray& a, AlignedArray* out, std::vector<int32_t> shap
    *  void (you need to modify out directly, rather than returning anything; this is true for all the
    *  function will implement here, so we won't repeat this note.)
    */
-  /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
-  /// END SOLUTION
+  size_t n_dim = shape.size();
+  std::vector<int32_t> index(n_dim, 0);  // Index vector, treated as a digit counter
+
+  for (size_t cnt = 0;; ++cnt) {
+    // Calculate the linear position in the input array a using strides and offset
+    size_t pos = offset;
+    for (size_t i = 0; i < n_dim; ++i) {
+      pos += index[i] * strides[i];
+    }
+    out->ptr[cnt] = a.ptr[pos];
+
+    // Increment the indices like a multi-digit counter, starting from the rightest dimension
+    for (int dim = n_dim - 1; dim >= 0; --dim) {
+      index[dim]++;
+      if (index[dim] < shape[dim]) {  // No carry-over needed
+        break;
+      }
+      index[dim] = 0;        // Reset and carry to the next higher dimension
+      if (dim == 0) return;  // Already processed all dimensions, exit the loop and return
+    }
+  }
 }
 
 void EwiseSetitem(const AlignedArray& a, AlignedArray* out, std::vector<int32_t> shape,
@@ -78,9 +96,27 @@ void EwiseSetitem(const AlignedArray& a, AlignedArray* out, std::vector<int32_t>
    *   strides: strides of the *out* array (not a, which has compact strides)
    *   offset: offset of the *out* array (not a, which has zero offset, being compact)
    */
-  /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
-  /// END SOLUTION
+  size_t cnt = 0;
+  std::vector<int32_t> index(shape.size(), 0);  // Index vector, treated as a digit counter
+
+  for (size_t cnt = 0;; ++cnt) {
+    // Calculate the linear position in the output array out using strides and offset
+    size_t pos = offset;
+    for (size_t i = 0; i < shape.size(); ++i) {
+      pos += index[i] * strides[i];
+    }
+    out->ptr[pos] = a.ptr[cnt];
+
+    // Increment the indices like a multi-digit counter, starting from the rightest dimension
+    for (int dim = shape.size() - 1; dim >= 0; --dim) {
+      index[dim]++;
+      if (index[dim] < shape[dim]) {  // No carry-over needed
+        break;
+      }
+      index[dim] = 0;        // Reset and carry to the next higher dimension
+      if (dim == 0) return;  // Already processed all dimensions, exit the loop and return
+    }
+  }
 }
 
 void ScalarSetitem(const size_t size, scalar_t val, AlignedArray* out, std::vector<int32_t> shape,
@@ -98,10 +134,23 @@ void ScalarSetitem(const size_t size, scalar_t val, AlignedArray* out, std::vect
    *   strides: strides of the out array
    *   offset: offset of the out array
    */
+  std::vector<int32_t> index(shape.size(), 0);  // Initialize index vector
 
-  /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
-  /// END SOLUTION
+  for (size_t cnt = 0; cnt < size; ++cnt) {
+    // Calculate the linear position in the output array out using strides and offset
+    size_t pos = offset;
+    for (size_t i = 0; i < shape.size(); ++i) {
+      pos += index[i] * strides[i];
+    }
+    out->ptr[pos] = val;
+
+    // Increment the index like a multi-digit counter
+    for (int dim = shape.size() - 1; dim >= 0; --dim) {
+      index[dim]++;
+      if (index[dim] < shape[dim]) break;
+      index[dim] = 0;
+    }
+  }
 }
 
 void EwiseAdd(const AlignedArray& a, const AlignedArray& b, AlignedArray* out) {
@@ -122,7 +171,6 @@ void ScalarAdd(const AlignedArray& a, scalar_t val, AlignedArray* out) {
   }
 }
 
-
 /**
  * In the code the follows, use the above template to create analogous element-wise
  * and and scalar operators for the following functions.  See the numpy backend for
@@ -142,7 +190,40 @@ void ScalarAdd(const AlignedArray& a, scalar_t val, AlignedArray* out) {
  * functions (however you want to do so, as long as the functions match the proper)
  * signatures above.
  */
+#define DEFINE_EWISE_FUNC(func, opr)                                           \
+  void func(const AlignedArray& a, const AlignedArray& b, AlignedArray* out) { \
+    for (size_t i = 0; i < a.size; ++i) {                                      \
+      out->ptr[i] = opr(a.ptr[i], b.ptr[i]);                                   \
+    }                                                                          \
+  }
+#define DEFINE_SCALAR_FUNC(func, opr)                                 \
+  void func(const AlignedArray& a, scalar_t val, AlignedArray* out) { \
+    for (size_t i = 0; i < a.size; ++i) {                             \
+      out->ptr[i] = opr(a.ptr[i], val);                               \
+    }                                                                 \
+  }
+#define DEFINE_UNARY_FUNC(func, opr)                    \
+  void func(const AlignedArray& a, AlignedArray* out) { \
+    for (size_t i = 0; i < a.size; ++i) {               \
+      out->ptr[i] = opr(a.ptr[i]);                      \
+    }                                                   \
+  }
 
+DEFINE_EWISE_FUNC(EwiseMul, std::multiplies<scalar_t>());
+DEFINE_SCALAR_FUNC(ScalarMul, std::multiplies<scalar_t>());
+DEFINE_EWISE_FUNC(EwiseDiv, std::divides<scalar_t>());
+DEFINE_SCALAR_FUNC(ScalarDiv, std::divides<scalar_t>());
+DEFINE_SCALAR_FUNC(ScalarPower, std::pow);
+DEFINE_EWISE_FUNC(EwiseMaximum, std::max);
+DEFINE_SCALAR_FUNC(ScalarMaximum, std::max);
+DEFINE_EWISE_FUNC(EwiseEq, std::equal_to<scalar_t>());
+DEFINE_SCALAR_FUNC(ScalarEq, std::equal_to<scalar_t>());
+DEFINE_EWISE_FUNC(EwiseGe, std::greater_equal<scalar_t>());
+DEFINE_SCALAR_FUNC(ScalarGe, std::greater_equal<scalar_t>());
+
+DEFINE_UNARY_FUNC(EwiseLog, std::log);
+DEFINE_UNARY_FUNC(EwiseExp, std::exp);
+DEFINE_UNARY_FUNC(EwiseTanh, std::tanh);
 
 void Matmul(const AlignedArray& a, const AlignedArray& b, AlignedArray* out, uint32_t m, uint32_t n,
             uint32_t p) {
@@ -158,10 +239,14 @@ void Matmul(const AlignedArray& a, const AlignedArray& b, AlignedArray* out, uin
    *   n: columns of a / rows of b
    *   p: columns of b / out
    */
-
-  /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
-  /// END SOLUTION
+  for (uint32_t i = 0; i < m; i++) {
+    for (uint32_t j = 0; j < p; j++) {
+      out->ptr[i * p + j] = 0;
+      for (uint32_t k = 0; k < n; k++) {
+        out->ptr[i * p + j] += a.ptr[i * n + k] * b.ptr[k * p + j];
+      }
+    }
+  }
 }
 
 inline void AlignedDot(const float* __restrict__ a,
@@ -189,9 +274,14 @@ inline void AlignedDot(const float* __restrict__ a,
   b = (const float*)__builtin_assume_aligned(b, TILE * ELEM_SIZE);
   out = (float*)__builtin_assume_aligned(out, TILE * ELEM_SIZE);
 
-  /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
-  /// END SOLUTION
+  // Perform dot product of TILE x TILE blocks and accumulate to `out`
+  for (size_t i = 0; i < TILE; ++i) {
+    for (size_t j = 0; j < TILE; ++j) {
+      for (size_t k = 0; k < TILE; ++k) {
+        out[i * TILE + j] += a[i * TILE + k] * b[k * TILE + j];
+      }
+    }
+  }
 }
 
 void MatmulTiled(const AlignedArray& a, const AlignedArray& b, AlignedArray* out, uint32_t m,
@@ -215,9 +305,21 @@ void MatmulTiled(const AlignedArray& a, const AlignedArray& b, AlignedArray* out
    *   p: columns of b / out
    *
    */
-  /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
-  /// END SOLUTION
+  Fill(out, 0);
+
+  // Tiled matrix multiplication
+  for (size_t i = 0; i < m; i += TILE) {
+    for (size_t j = 0; j < p; j += TILE) {
+      for (size_t k = 0; k < n; k += TILE) {
+        // i' = i/TILE, j' = j/TILE, k' = k/TILE
+        // a: (i'*(n/TILE) + k') * TILE * TILE = i * n + k * TILE
+        const float* a_tile = &a.ptr[i * n + k * TILE];
+        const float* b_tile = &b.ptr[k * p + j * TILE];
+        float* out_tile = &out->ptr[i * p + j * TILE];
+        AlignedDot(a_tile, b_tile, out_tile);
+      }
+    }
+  }
 }
 
 void ReduceMax(const AlignedArray& a, AlignedArray* out, size_t reduce_size) {
@@ -229,10 +331,13 @@ void ReduceMax(const AlignedArray& a, AlignedArray* out, size_t reduce_size) {
    *   out: compact array to write into
    *   reduce_size: size of the dimension to reduce over
    */
-
-  /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
-  /// END SOLUTION
+  for (size_t i = 0; i < out->size; ++i) {
+    scalar_t max_val = a.ptr[i * reduce_size];
+    for (size_t j = 1; j < reduce_size; ++j) {
+      max_val = std::max(max_val, a.ptr[i * reduce_size + j]);
+    }
+    out->ptr[i] = max_val;
+  }
 }
 
 void ReduceSum(const AlignedArray& a, AlignedArray* out, size_t reduce_size) {
@@ -244,10 +349,13 @@ void ReduceSum(const AlignedArray& a, AlignedArray* out, size_t reduce_size) {
    *   out: compact array to write into
    *   reduce_size: size of the dimension to reduce over
    */
-
-  /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
-  /// END SOLUTION
+  for (size_t i = 0; i < out->size; ++i) {
+    scalar_t sum_val = 0;
+    for (size_t j = 0; j < reduce_size; ++j) {
+      sum_val += a.ptr[i * reduce_size + j];
+    }
+    out->ptr[i] = sum_val;
+  }
 }
 
 }  // namespace cpu
