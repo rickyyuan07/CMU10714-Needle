@@ -320,14 +320,11 @@ def relu(a):
 
 class Tanh(TensorOp):
     def compute(self, a):
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        return array_api.tanh(a)
 
     def gradient(self, out_grad, node):
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        # return out_grad * (1 - node ** 2)
+        return out_grad * (-node ** 2 + 1) # TODO: reverse (1 + node**2) not correct, check out why
 
 
 def tanh(a):
@@ -345,14 +342,28 @@ class Stack(TensorOp):
         self.axis = axis
 
     def compute(self, args: TensorTuple) -> Tensor:
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        assert len(args) > 0, "Need at least one array to stack"
+        shape = args[0].shape
+        for arg in args:
+            assert arg.shape == shape, "All arrays must have the same shape"
+            assert arg.dtype == args[0].dtype, "All arrays must have the same dtype"
+            assert arg.device == args[0].device, "All arrays must be on the same device"
+        
+        new_shape = list(shape)
+        new_shape.insert(self.axis, len(args))
+        # Create a new array with the new shape
+        ret = array_api.empty(new_shape, dtype=args[0].dtype, device=args[0].device)
 
+        # Fill the new array with the input arrays
+        for i, arg in enumerate(args):
+            # Create slice object to insert along the new axis
+            slices = [slice(None)] * len(new_shape)  # slice(None) is equivalent to ':'
+            slices[self.axis] = i
+            ret[tuple(slices)] = arg  # ret[:, ..., i, :, ...] = arg
+        return ret
+            
     def gradient(self, out_grad, node):
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        return split(out_grad, axis=self.axis)
 
 
 def stack(args, axis):
@@ -370,14 +381,20 @@ class Split(TensorTupleOp):
         self.axis = axis
 
     def compute(self, A):
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        # Calculate the size of each split
+        ret_shape = [dim for i, dim in enumerate(A.shape) if i != self.axis]
+
+        ret = []
+        for i in range(A.shape[self.axis]):
+            slices = [slice(None)] * len(A.shape)
+            slices[self.axis] = i
+            # Need to call compact() before reshaping
+            ret.append(A[tuple(slices)].compact().reshape(ret_shape))
+        
+        return tuple(ret)
 
     def gradient(self, out_grad, node):
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        return stack(out_grad, axis=self.axis)
 
 
 def split(a, axis):
