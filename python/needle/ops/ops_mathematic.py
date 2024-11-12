@@ -480,7 +480,7 @@ class UnDilate(TensorOp):
 def undilate(a, axes, dilation):
     return UnDilate(axes, dilation)(a)
 
-
+# Self-defined functions for preventing using lots of tranposes
 class Permute(TensorOp):
     def __init__(self, axes: tuple):
         self.axes = axes
@@ -489,11 +489,9 @@ class Permute(TensorOp):
         return a.compact().permute(self.axes)
 
     def gradient(self, out_grad, node):
-        a = node.inputs[0]
-        index = [0] * len(self.axes)
-        for i in range(len(self.axes)):
-            index[self.axes[i]] = i
-        return permute(out_grad, tuple(index))
+        # Construct the inverse permutation
+        index = tuple(self.axes.index(i) for i in range(len(self.axes)))
+        return permute(out_grad, index)
         
 def permute(a, axes):
     return Permute(axes)(a)
