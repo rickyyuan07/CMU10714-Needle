@@ -16,7 +16,11 @@ def kaiming_uniform(fan_in, fan_out, shape=None, nonlinearity="relu", **kwargs):
     assert nonlinearity == "relu", "Only relu supported currently"
     gain = math.sqrt(2) # gain for ReLU
     bound = gain * math.sqrt(3 / fan_in)
-    return rand(fan_in, fan_out, low=-bound, high=bound, **kwargs)
+    if shape is None:
+        ret = rand(fan_in, fan_out, low=-bound, high=bound, **kwargs)
+    else:
+        ret = rand(*shape, low=-bound, high=bound, **kwargs)
+    return ret
 
 
 def kaiming_normal(fan_in, fan_out, nonlinearity="relu", **kwargs):
