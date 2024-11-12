@@ -585,9 +585,16 @@ class NDArray:
         Flip this ndarray along the specified axes.
         Note: compact() before returning.
         """
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        # Prepare the strides for the flipped dimensions
+        new_strides = [self.strides[i] for i in range(self.ndim)]
+        for axis in axes:
+            new_strides[axis] = -new_strides[axis]
+        
+        # sum all the (shape - 1) * stride for the flipped axes
+        new_offset = self._offset + builtins.sum((s - 1) * self.strides[i] for i, s in enumerate(self.shape) if i in axes)
+        
+        new_array = NDArray.make(self.shape, strides=tuple(new_strides), device=self.device, handle=self._handle, offset=new_offset).compact()
+        return new_array
 
     def pad(self, axes):
         """
@@ -595,9 +602,15 @@ class NDArray:
         which lists for _all_ axes the left and right padding amount, e.g.,
         axes = ( (0, 0), (1, 1), (0, 0)) pads the middle axis with a 0 on the left and right side.
         """
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        assert len(axes) == self.ndim, "Need to pad all dimensions"
+
+        # construct the new shape
+        new_shape = tuple([s + pad[0] + pad[1] for s, pad in zip(self.shape, axes)])
+        out = self.device.full(new_shape, 0, dtype=self.dtype)
+        origin = tuple(slice(pad[0], s + pad[0]) for s, pad in zip(self.shape, axes))
+        out[origin] = self
+        return out
+
 
 def array(a, dtype="float32", device=None):
     """Convenience methods to match numpy a bit more closely."""
