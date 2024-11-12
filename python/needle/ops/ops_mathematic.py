@@ -6,7 +6,7 @@ from typing import Optional, List, Tuple, Union
 from ..autograd import NDArray
 from ..autograd import Op, Tensor, Value, TensorOp
 from ..autograd import TensorTuple, TensorTupleOp
-import numpy
+# import numpy
 
 # NOTE: we will import numpy as the array_api
 # as the backend for our computations, this line will change in later homeworks
@@ -504,15 +504,47 @@ class Conv(TensorOp):
         self.padding = padding
 
     def compute(self, A, B):
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        # Guaranteed input shapes: A: (N, H, W, C_in), B: (K, K, C_in, C_out); 2D convolution
+        assert len(A.shape) == 4, "Input tensor A must have 4 dimensions"
+        assert len(B.shape) == 4, "Input tensor B (Kernel) must have 4 dimensions"
+
+        A = A.pad(((0, 0), (self.padding, self.padding), (self.padding, self.padding), (0, 0))).compact()
+
+        N, H, W, C_in = A.shape
+        K, _, _, C_out = B.shape
+        Ns, Hs, Ws, Cs = A.strides
+        new_H = (H-K+1 + self.stride-1) // self.stride
+        new_W = (W-K+1 + self.stride-1) // self.stride
+        
+        inner_dim = K * K * C_in
+        A_shape = (N, new_H, new_W, K, K, C_in)
+        A_strides = (Ns, Hs * self.stride, Ws * self.stride, Hs, Ws, Cs)
+        A_new_shape = (N * new_H * new_W, inner_dim)
+        A = A.as_strided(shape=A_shape, strides=A_strides).compact().reshape(A_new_shape)
+        out = A @ B.compact().reshape((inner_dim, C_out))
+        out_shape = (N, new_H, new_W, C_out)
+        return out.reshape(out_shape)
 
     def gradient(self, out_grad, node):
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        A, B = node.inputs
+        N, H, W, C_in = A.shape
+        K, _, _, C_out = B.shape
 
+        # For strides != 1
+        out_grad = dilate(out_grad, axes=(1, 2), dilation=self.stride-1)
+        
+        # A.grad
+        _B = permute(B, (0, 1, 3, 2))
+        _B = flip(_B, axes=(0, 1))
+        A_grad = conv(out_grad, _B, stride=1, padding=(K - 1 - self.padding))
+
+        # B.grad
+        _A = permute(A, (3, 1, 2, 0))
+        out_grad = permute(out_grad, (1, 2, 0, 3))
+        B_grad = conv(_A, out_grad, stride=1, padding=self.padding)
+        B_grad = permute(B_grad, (1, 2, 0, 3))
+
+        return A_grad, B_grad
 
 def conv(a, b, stride=1, padding=1):
     return Conv(stride, padding)(a, b)
