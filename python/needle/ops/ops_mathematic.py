@@ -481,6 +481,23 @@ def undilate(a, axes, dilation):
     return UnDilate(axes, dilation)(a)
 
 
+class Permute(TensorOp):
+    def __init__(self, axes: tuple):
+        self.axes = axes
+
+    def compute(self, a):
+        return a.compact().permute(self.axes)
+
+    def gradient(self, out_grad, node):
+        a = node.inputs[0]
+        index = [0] * len(self.axes)
+        for i in range(len(self.axes)):
+            index[self.axes[i]] = i
+        return permute(out_grad, tuple(index))
+        
+def permute(a, axes):
+    return Permute(axes)(a)
+
 class Conv(TensorOp):
     def __init__(self, stride: Optional[int] = 1, padding: Optional[int] = 0):
         self.stride = stride
