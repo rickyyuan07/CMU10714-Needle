@@ -78,8 +78,8 @@ class EWisePow(TensorOp):
         
     def gradient(self, out_grad, node):
         lhs, rhs = node.inputs
-        ret1 = out_grad * rhs * power(lhs, rhs - 1)
-        ret2 = out_grad * log(lhs) * power(lhs, rhs)
+        ret1 = out_grad * rhs * (lhs ** (rhs - 1))
+        ret2 = out_grad * log(lhs) * (lhs ** rhs)
         return ret1, ret2
 
 def power(a, b):
@@ -96,7 +96,7 @@ class PowerScalar(TensorOp):
         return a ** self.scalar
 
     def gradient(self, out_grad, node):
-        return out_grad * self.scalar * array_api.power(node.inputs[0], self.scalar - 1)
+        return out_grad * self.scalar * (node.inputs[0] ** (self.scalar - 1))
 
 
 def power_scalar(a, scalar):
