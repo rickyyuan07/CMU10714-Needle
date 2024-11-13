@@ -30,9 +30,9 @@ class ResNet9(ndl.nn.Module):
             )
         )
         self.flatten = nn.Flatten()
-        self.linear = nn.Linear(128, 128)
+        self.linear = nn.Linear(128, 128, device=self.device, dtype=self.dtype)
         self.relu = nn.ReLU()
-        self.linear2 = nn.Linear(128, 10)
+        self.linear2 = nn.Linear(128, 10, device=self.device, dtype=self.dtype)
 
 
     def ConvBN(self, a, b, k, s):

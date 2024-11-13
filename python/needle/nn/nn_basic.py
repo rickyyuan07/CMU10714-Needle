@@ -98,7 +98,7 @@ class Linear(Module):
     def forward(self, X: Tensor) -> Tensor:
         if self.bias.shape != (1, self.out_features):
             self.bias = self.bias.reshape((1, self.out_features))
-        y = ops.matmul(X, self.weight)
+        y = X @ self.weight
         if self.bias:
             y += self.bias.broadcast_to(y.shape)
         
@@ -136,7 +136,7 @@ class Sequential(Module):
 class SoftmaxLoss(Module):
     def forward(self, logits: Tensor, y: Tensor):
         batch_size, label_size = logits.shape
-        one_hot_y = init.one_hot(label_size, y)
+        one_hot_y = init.one_hot(label_size, y, device=logits.device, dtype=logits.dtype)
         true_logits = ops.summation(logits * one_hot_y, axes=(1,))
         return (ops.logsumexp(logits, axes=(1, )) - true_logits).sum()/batch_size
 
