@@ -247,6 +247,7 @@ class NDArray:
             NDArray : reshaped array; this will point to thep
         """
         assert self.size == prod(new_shape), "The total number of elements must be the same."
+        self = self.compact()
         return self.as_strided(new_shape, NDArray.compact_strides(new_shape))
 
     def permute(self, new_axes):

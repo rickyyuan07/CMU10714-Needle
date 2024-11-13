@@ -163,7 +163,7 @@ class Reshape(TensorOp): # gives a new shape to an array without changing its da
         self.shape = shape
 
     def compute(self, a):
-        return array_api.reshape(a, self.shape)
+        return array_api.reshape(a.compact(), self.shape)
 
     def gradient(self, out_grad, node):
         return reshape(out_grad, node.inputs[0].shape)
@@ -393,8 +393,7 @@ class Split(TensorTupleOp):
         for i in range(A.shape[self.axis]):
             slices = [slice(None)] * len(A.shape)
             slices[self.axis] = i
-            # Need to call compact() before reshaping
-            ret.append(A[tuple(slices)].compact().reshape(ret_shape))
+            ret.append(A[tuple(slices)].reshape(ret_shape))
         
         return tuple(ret)
 
@@ -523,8 +522,8 @@ class Conv(TensorOp):
         A_shape = (N, new_H, new_W, K, K, C_in)
         A_strides = (Ns, Hs * self.stride, Ws * self.stride, Hs, Ws, Cs)
         A_new_shape = (N * new_H * new_W, inner_dim)
-        A = A.as_strided(shape=A_shape, strides=A_strides).compact().reshape(A_new_shape)
-        out = A @ B.compact().reshape((inner_dim, C_out))
+        A = A.as_strided(shape=A_shape, strides=A_strides).reshape(A_new_shape)
+        out = A @ B.reshape((inner_dim, C_out))
         out_shape = (N, new_H, new_W, C_out)
         return out.reshape(out_shape)
 
