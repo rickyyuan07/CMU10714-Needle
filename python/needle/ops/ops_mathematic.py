@@ -196,10 +196,15 @@ class BroadcastTo(TensorOp): # broadcast an array to a new shape (1 input, `shap
             if dim_in == 1 and dim_out > 1:
                 axes.append(i)
 
-        # Sum the gradient along the broadcasted dimensions
-        grad = summation(out_grad, axes=tuple(axes))
+        # Sum the gradient along the broadcasted dimensions, supporting multiple axes
+        cnt = 0
+        grad = out_grad
+        for axis in axes:
+            grad = summation(grad, axes=(axis - cnt,))
+            cnt += 1
+
         # Reshape for unsqueezing, e.g. (3,) -> (3, 1)
-        grad = reshape(grad, node.inputs[0].shape)
+        grad = reshape(grad, input_shape)
         return grad
 
 
