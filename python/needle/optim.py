@@ -24,9 +24,13 @@ class SGD(Optimizer):
         self.weight_decay = weight_decay
 
     def step(self):
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        for p in self.params:
+            grad = p.grad.data + self.weight_decay * p.data
+            # u_{t+1} = \beta * u_t + (1 - \beta) * grad
+            self.u[p] = self.momentum * self.u.get(p, 0) + (1 - self.momentum) * grad
+            # p_{t+1} = p_t - lr * u_{t+1}
+            p.data -= self.lr * self.u[p]
+        
 
     def clip_grad_norm(self, max_norm=0.25):
         """
@@ -59,6 +63,16 @@ class Adam(Optimizer):
         self.v = {}
 
     def step(self):
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        self.t += 1
+        for p in self.params:
+            grad = p.grad.data + self.weight_decay * p.data
+            # u_{t+1} = \beta_1 * u_t + (1 - \beta_1) * grad
+            self.m[p] = self.beta1 * self.m.get(p, 0) + (1 - self.beta1) * grad
+            # v_{t+1} = \beta_2 * v_t + (1 - \beta_2) * grad^2
+            self.v[p] = self.beta2 * self.v.get(p, 0) + (1 - self.beta2) * (grad ** 2)
+            # u_hat = u / (1 - \beta_1^t)
+            m_hat = self.m[p] / (1 - self.beta1 ** self.t)
+            # v_hat = v / (1 - \beta
+            v_hat = self.v[p] / (1 - self.beta2 ** self.t)
+            # p_{t+1} = p_t - lr * u_hat / (v_hat^0.5 + eps)
+            p.data -= self.lr * m_hat / (v_hat ** 0.5 + self.eps)
