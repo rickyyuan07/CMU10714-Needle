@@ -10,14 +10,50 @@ np.random.seed(0)
 class ResNet9(ndl.nn.Module):
     def __init__(self, device=None, dtype="float32"):
         super().__init__()
-        ### BEGIN YOUR SOLUTION ###
-        raise NotImplementedError() ###
-        ### END YOUR SOLUTION
+        self.device = device
+        self.dtype = dtype
 
+        self.conv1 = self.ConvBN(3, 16, 7, 4)
+        self.conv2 = self.ConvBN(16, 32, 3, 2)
+        self.res = nn.Residual(
+            nn.Sequential(
+                self.ConvBN(32, 32, 3, 1),
+                self.ConvBN(32, 32, 3, 1)
+            )
+        )
+        self.conv3 = self.ConvBN(32, 64, 3, 2)
+        self.conv4 = self.ConvBN(64, 128, 3, 2)
+        self.res2 = nn.Residual(
+            nn.Sequential(
+                self.ConvBN(128, 128, 3, 1),
+                self.ConvBN(128, 128, 3, 1)
+            )
+        )
+        self.flatten = nn.Flatten()
+        self.linear = nn.Linear(128, 128)
+        self.relu = nn.ReLU()
+        self.linear2 = nn.Linear(128, 10)
+
+
+    def ConvBN(self, a, b, k, s):
+        return nn.Sequential(
+            nn.Conv(in_channels=a, out_channels=b, kernel_size=k, stride=s, device=self.device, dtype=self.dtype),
+            nn.BatchNorm2d(b, device=self.device, dtype=self.dtype),
+            nn.ReLU()
+        )
+    
     def forward(self, x):
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        x = self.conv1(x)
+        x = self.conv2(x)
+        x = self.res(x)
+        x = self.conv3(x)
+        x = self.conv4(x)
+        x = self.res2(x)
+        x = self.flatten(x)
+        x = self.linear(x)
+        x = self.relu(x)
+        x = self.linear2(x)
+        return x
 
 
 class LanguageModel(nn.Module):
