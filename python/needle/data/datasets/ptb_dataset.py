@@ -59,7 +59,7 @@ class Corpus(object):
         ids: List of ids
         """
         assert os.path.exists(path), f"Tokenize failed: File not found at {path}"
-        self.dictionary.add_word('<eos>')  # <eos> is index 0
+        # self.dictionary.add_word('<eos>')  # <eos> is index 0, can't pass test...
         ids = []
         with open(path, 'r') as f:
             n_lines = 0
@@ -118,5 +118,6 @@ def get_batch(batches, i, bptt, device=None, dtype=None):
     """
     seq_len = min(bptt, batches.shape[0] - 1 - i)
     data = batches[i:i + seq_len]
-    target = batches[i + 1:i + 1 + seq_len].reshape(-1)
-    return Tensor(data, device=device, dtype=dtype), Tensor(target, device=device, dtype=dtype)
+    target = batches[i + 1:i + 1 + seq_len].flatten()
+    data, target = Tensor(data, device=device, dtype=dtype), Tensor(target, device=device, dtype=dtype)
+    return data, target
