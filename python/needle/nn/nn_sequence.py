@@ -308,9 +308,12 @@ class Embedding(Module):
         weight - The learnable weights of shape (num_embeddings, embedding_dim)
             initialized from N(0, 1).
         """
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        self.device = device
+        self.dtype = dtype
+        self.num_embeddings = num_embeddings
+        self.embedding_dim = embedding_dim
+
+        self.weight = Parameter(init.randn(num_embeddings, embedding_dim, device=device, dtype=dtype))
 
     def forward(self, x: Tensor) -> Tensor:
         """
@@ -322,6 +325,9 @@ class Embedding(Module):
         Output:
         output of shape (seq_len, bs, embedding_dim)
         """
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        one_hot = init.one_hot(self.num_embeddings, x, device=self.device, dtype=self.dtype)  # shape: (seq_len, bs, num_embeddings)
+        seq_len, bs = one_hot.shape[:2]
+        # Note: now only support 2x2 matrix multiplication
+        one_hot = one_hot.reshape((seq_len * bs, self.num_embeddings))
+        ret = one_hot @ self.weight
+        return ret.reshape((seq_len, bs, self.embedding_dim))
