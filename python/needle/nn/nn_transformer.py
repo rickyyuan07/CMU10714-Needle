@@ -103,14 +103,22 @@ class MultiHeadAttention(Module):
         _, _, _, v_dim = v.shape
 
         assert q_dim == k_dim == v_dim
+        dim_head = q_dim
 
         result = None
         probs = None
 
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        # Scaled dot-product attention: score = Q * K^T / sqrt(dim_head)
+        scores = self.matmul(q, k) / np.sqrt(dim_head)
 
+        if self.causal:
+            causal_mask = self.create_causal_mask(queries_len, keys_values_len, self.device)
+            scores += causal_mask.broadcast_to(scores.shape)
+
+        probs = self.dropout(self.softmax(scores))
+
+        # Weighted value aggregation
+        result = self.matmul(probs, v.transpose((2, 3)))
         return result, probs
 
 
