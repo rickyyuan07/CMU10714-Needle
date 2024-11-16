@@ -96,11 +96,21 @@ class Linear(Module):
             self.bias = Parameter(self.bias, device=device, dtype=dtype)
 
     def forward(self, X: Tensor) -> Tensor:
-        if self.bias and self.bias.shape != (1, self.out_features):
-            self.bias = self.bias.reshape((1, self.out_features))
+        assert X.shape[-1] == self.in_features, f"Expected input shape ({X.shape[:-1]}, {self.in_features}), got {X.shape}"
+        # Added support to handle input with more than 2 dimensions
+        original_shape = X.shape
+        if len(original_shape) > 2:
+            dim1 = 1
+            for i in range(0, len(X.shape)-1):
+                dim1 *= X.shape[i]
+            X = X.reshape((dim1, self.in_features))
+        
         y = X @ self.weight
         if self.bias:
             y += self.bias.broadcast_to(y.shape)
+        
+        if len(original_shape) > 2:
+            y = y.reshape((*original_shape[:-1], self.out_features))
         
         return y
 
@@ -127,6 +137,7 @@ class Sequential(Module):
     def forward(self, x: Tensor) -> Tensor:
         y = x
         for module in self.modules:
+            # breakpoint()
             y = module(y)  
 
         return y

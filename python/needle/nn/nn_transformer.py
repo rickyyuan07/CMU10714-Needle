@@ -12,7 +12,8 @@ from .nn_basic import (
     Dropout,
     LayerNorm1d,
     Linear,
-    Sequential
+    Sequential,
+    Residual
 )
 
 
@@ -248,9 +249,32 @@ class TransformerLayer(Module):
         self.device = device
         self.dtype = dtype
 
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        self.q_features = q_features
+        self.num_head = num_head
+        self.dim_head = dim_head
+        self.hidden_size = hidden_size
+
+        self.layer1 = Sequential(
+            AttentionLayer(
+                q_features=q_features,
+                num_head=num_head,
+                dim_head=dim_head,
+                out_features=q_features,
+                dropout=dropout,
+                causal=causal,
+                device=device,
+                dtype=dtype
+            ),
+            Dropout(dropout),
+        )
+        self.layernorm1d = LayerNorm1d(q_features, device=device, dtype=dtype)
+        self.layer2 = Sequential(
+            Linear(q_features, hidden_size, bias=True, device=device, dtype=dtype),
+            ReLU(),
+            Dropout(dropout),
+            Linear(hidden_size, q_features, bias=True, device=device, dtype=dtype),
+            Dropout(dropout),
+        )
 
     def forward(
         self,
@@ -264,9 +288,13 @@ class TransformerLayer(Module):
 
         batch_size, seq_len, x_dim = x.shape
 
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        x = self.layer1(x) + x
+        _x = x
+        x = x.reshape((batch_size * seq_len, x_dim))
+        x = self.layernorm1d(x)
+        x = x.reshape((batch_size, seq_len, x_dim))
+        x = self.layer2(x)
+        x += _x
 
         return x
 
