@@ -322,10 +322,25 @@ class Transformer(Module):
         self.device = device
         self.dtype = dtype
         self.batch_first = batch_first
+        self.embedding_size = embedding_size
+        self.hidden_size = hidden_size
+        self.sequence_len = sequence_len
 
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        self.embedding = Embedding(sequence_len, embedding_size, device=device, dtype=dtype)
+        self.transformer_layers = Sequential(
+            *[TransformerLayer(
+                q_features=embedding_size,
+                num_head=num_head,
+                dim_head=dim_head,
+                hidden_size=hidden_size,
+                dropout=dropout,
+                causal=causal,
+                device=device,
+                dtype=dtype
+            ) for _ in range(num_layers)]
+        )
+
+
 
     def forward(
         self,
@@ -335,9 +350,13 @@ class Transformer(Module):
         if not self.batch_first:
             x = ops.transpose(x, axes=(0, 1))
 
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        batch_size, seq_len, embedding_size = x.shape
+        timestemps = np.arange(seq_len)
+        timestemps = np.broadcast_to(timestemps, (batch_size, seq_len))
+        timestemps = Tensor(timestemps, device=self.device, dtype=self.dtype, requires_grad=False)
+        times_embedding = self.embedding(timestemps)
+        x = x + times_embedding
+        x = self.transformer_layers(x)
 
         if not self.batch_first:
             x = ops.transpose(x, axes=(0, 1))
