@@ -358,6 +358,9 @@ class Tensor(Value):
 
     def transpose(self, axes=None):
         return needle.ops.Transpose(axes)(self)
+    
+    def permute(self, axes):
+        return needle.ops.Permute(axes)(self)
 
 
 

@@ -159,32 +159,19 @@ class AttentionLayer(Module):
         self.num_head = num_head
         self.dim_head = dim_head
 
-        self.prenorm_q = LayerNorm1d(
-            q_features, device=device, dtype=dtype)
-        self.prenorm_k = LayerNorm1d(
-            k_features, device=device, dtype=dtype)
-        self.prenorm_v = LayerNorm1d(
-            v_features, device=device, dtype=dtype)
+        self.prenorm_q = LayerNorm1d(q_features, device=device, dtype=dtype)
+        self.prenorm_k = LayerNorm1d(k_features, device=device, dtype=dtype)
+        self.prenorm_v = LayerNorm1d(v_features, device=device, dtype=dtype)
 
         inner_dim = num_head * dim_head
         
-        self.q_projection = Linear(
-            q_features, inner_dim, bias=False,
-            device=device, dtype=dtype)
-        self.k_projection = Linear(
-            k_features, inner_dim, bias=False,
-            device=device, dtype=dtype)
-        self.v_projection = Linear(
-            v_features, inner_dim, bias=False,
-            device=device, dtype=dtype)
+        self.q_projection = Linear(q_features, inner_dim, bias=False, device=device, dtype=dtype)
+        self.k_projection = Linear(k_features, inner_dim, bias=False, device=device, dtype=dtype)
+        self.v_projection = Linear(v_features, inner_dim, bias=False, device=device, dtype=dtype)
 
-        self.attn = MultiHeadAttention(
-            dropout=dropout, causal=causal,
-            device=device, dtype=dtype)
+        self.attn = MultiHeadAttention(dropout=dropout, causal=causal, device=device, dtype=dtype)
 
-        self.out_projection = Linear(
-            inner_dim, out_features, bias=False,
-            device=device, dtype=dtype)
+        self.out_projection = Linear(inner_dim, out_features, bias=False, device=device, dtype=dtype)
 
     def forward(
         self,
@@ -209,9 +196,34 @@ class AttentionLayer(Module):
 
         result = None
 
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        # Reshape becuase layer norm expects now only support 2D input
+        q = q.reshape((batch_size * queries_len, q_dim))
+        k = k.reshape((batch_size * keys_values_len, k_dim))
+        v = v.reshape((batch_size * keys_values_len, v_dim))
+        # breakpoint()
+        # Normalize and project q, k, v
+        q_proj = self.q_projection(self.prenorm_q(q))  # (batch_size * queries_len, inner_dim)
+        k_proj = self.k_projection(self.prenorm_k(k))  # (batch_size * keys_values_len, inner_dim)
+        v_proj = self.v_projection(self.prenorm_v(v))  # (batch_size * keys_values_len, inner_dim)
+
+        # Reshape for multi-head attention, (B * T, H * D) -> (B, T, H, D) -> (B, H, T, D)
+        q_proj = q_proj.reshape((batch_size, queries_len, self.num_head, self.dim_head))
+        q_proj = q_proj.permute((0, 2, 1, 3))
+        k_proj = k_proj.reshape((batch_size, keys_values_len, self.num_head, self.dim_head))
+        k_proj = k_proj.permute((0, 2, 1, 3))
+        v_proj = v_proj.reshape((batch_size, keys_values_len, self.num_head, self.dim_head))
+        v_proj = v_proj.permute((0, 2, 1, 3))
+
+        # Apply multi-head attention
+        attn_output, _ = self.attn(q_proj, k_proj, v_proj)  # (B, H, T, D)
+
+        # (B, H, T, D) -> (B, T, H, D) -> (B, T, H * D)
+        attn_output = attn_output.permute((0, 2, 1, 3))
+        attn_output = attn_output.reshape((batch_size, keys_values_len, self.num_head * self.dim_head))
+        # Reshape because matmul now only support 2x2 @ 2x2 matrices
+        attn_output = attn_output.reshape((batch_size * keys_values_len, self.num_head * self.dim_head))
+        result = self.out_projection(attn_output)
+        result = result.reshape((batch_size, keys_values_len, self.out_features))
 
         return result
 

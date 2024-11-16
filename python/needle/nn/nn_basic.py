@@ -96,7 +96,7 @@ class Linear(Module):
             self.bias = Parameter(self.bias, device=device, dtype=dtype)
 
     def forward(self, X: Tensor) -> Tensor:
-        if self.bias.shape != (1, self.out_features):
+        if self.bias and self.bias.shape != (1, self.out_features):
             self.bias = self.bias.reshape((1, self.out_features))
         y = X @ self.weight
         if self.bias:
@@ -195,6 +195,7 @@ class LayerNorm1d(Module):
         self.bias = Parameter(init.zeros(1, dim, device=device, dtype=dtype), device=device, dtype=dtype)
 
     def forward(self, x: Tensor) -> Tensor:
+        assert len(x.shape) == 2, "Now layerNorm1d only supports 2D input"
         batch_size, feature_size = x.shape
         mean = (x.sum(axes=(1, )) / feature_size).reshape((batch_size, 1)).broadcast_to(x.shape)
         var = (((x - mean) ** 2).sum(axes=(1, )) / feature_size).reshape((batch_size, 1)).broadcast_to(x.shape)
