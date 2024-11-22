@@ -20,7 +20,7 @@ def add(x, y):
         Sum of x + y
     """
     ### BEGIN YOUR CODE
-    pass
+    return x + y
     ### END YOUR CODE
 
 
@@ -48,7 +48,22 @@ def parse_mnist(image_filename, label_filename):
                 for MNIST will contain the values 0-9.
     """
     ### BEGIN YOUR CODE
-    pass
+    with gzip.open(image_filename, 'rb') as img_file:
+        # '>' as big-endian, 'I' as unsigned int
+        magic_number, num_images, num_rows, num_cols = struct.unpack('>IIII', img_file.read(16))
+        
+        image_data = img_file.read(num_images * num_rows * num_cols)
+        X = np.frombuffer(image_data, dtype=np.uint8)
+        X = X.reshape(num_images, num_rows * num_cols).astype(np.float32)
+        X = X / 255.0  # Normalize to [0, 1]
+    
+    with gzip.open(label_filename, 'rb') as lbl_file:
+        magic_number, num_labels = struct.unpack('>II', lbl_file.read(8))
+        
+        label_data = lbl_file.read(num_labels)
+        y = np.frombuffer(label_data, dtype=np.uint8)
+    
+    return X, y
     ### END YOUR CODE
 
 
@@ -68,7 +83,7 @@ def softmax_loss(Z, y):
         Average softmax loss over the sample.
     """
     ### BEGIN YOUR CODE
-    pass
+    return np.mean(np.log(np.sum(np.exp(Z), axis=1)) - Z[np.arange(Z.shape[0]), y])
     ### END YOUR CODE
 
 
@@ -91,7 +106,30 @@ def softmax_regression_epoch(X, y, theta, lr = 0.1, batch=100):
         None
     """
     ### BEGIN YOUR CODE
-    pass
+    m, n = X.shape  # m is number of samples, n is number of features
+    _, k = theta.shape  # k is number of classes, (input_dim, num_classes)
+
+    # One epoch
+    for i in range(0, m, batch):
+        X_batch = X[i:i+batch]
+        y_batch = y[i:i+batch]
+
+        # Compute logits: Z = X_batch @ Theta, shape (batch_size, k)
+        logits = X_batch @ theta
+
+        # Compute softmax probabilities Z = exp(logits) / sum(exp(logits))
+        exp_logits = np.exp(logits)
+        softmax_probs = exp_logits / np.sum(exp_logits, axis=1, keepdims=True)
+
+        # Create one-hot encoded matrix for y_batch, shape (batch_size, k)
+        y_one_hot = np.zeros_like(softmax_probs)
+        y_one_hot[np.arange(batch), y_batch] = 1
+
+        # Compute gradient: X.T @ (softmax_probs - y_one_hot), shape (n, k)
+        gradient = X_batch.T @ (softmax_probs - y_one_hot) / batch
+
+        # Update Theta: Theta -= lr * gradient
+        theta -= lr * gradient
     ### END YOUR CODE
 
 
@@ -118,7 +156,34 @@ def nn_epoch(X, y, W1, W2, lr = 0.1, batch=100):
         None
     """
     ### BEGIN YOUR CODE
-    pass
+    num_examples = X.shape[0]
+    
+    for i in range(0, num_examples, batch):
+      X_batch = X[i:i+batch]
+      y_batch = y[i:i+batch]
+
+      # Forward
+      Z1 = np.maximum(0, X_batch @ W1) # Relu
+      logits = Z1 @ W2
+
+      # softmax probs exp(logits) / sum(exp(logits))
+      exp_logits = np.exp(logits)
+      softmax_probs = exp_logits / np.sum(exp_logits, axis=1, keepdims=True)
+
+      # Create one-hot encoded matrix for y_batch, shape (batch_size, k)
+      y_one_hot = np.zeros_like(softmax_probs)
+      y_one_hot[np.arange(batch), y_batch] = 1
+
+      # Backward pass: Compute gradients for W2 and W1
+      G2 = softmax_probs - y_one_hot  # Gradient at output
+      grad_W2 = Z1.T @ G2 / X_batch.shape[0]  # Gradient for W2
+      G1 = (G2 @ W2.T) * (Z1 > 0)  # Backprop through ReLU
+      grad_W1 = X_batch.T @ G1 / X_batch.shape[0]  # Gradient for W1
+
+      # Update weights
+      W1 -= lr * grad_W1
+      W2 -= lr * grad_W2
+
     ### END YOUR CODE
 
 

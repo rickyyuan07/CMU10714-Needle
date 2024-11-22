@@ -4,7 +4,7 @@
 #include <iostream>
 
 namespace py = pybind11;
-
+using namespace std;
 
 void softmax_regression_epoch_cpp(const float *X, const unsigned char *y,
 								  float *theta, size_t m, size_t n, size_t k,
@@ -33,7 +33,62 @@ void softmax_regression_epoch_cpp(const float *X, const unsigned char *y,
      */
 
     /// BEGIN YOUR CODE
+// Allocate memory for logits and softmax gradients
+    float *logits = new float[batch * k];      // Logits (batch size x num_classes)
+    float *probs = new float[batch * k];       // Softmax probabilities (batch size x num_classes)
+    float *grad_theta = new float[n * k];      // Gradient for theta (num_features x num_classes)
 
+    // Loop over the dataset in mini-batches
+    for (int start = 0; start < m; start += batch) {
+        int current_batch_size = std::min(batch, m - start);  // Handle last batch if smaller
+
+        // Step 1: Compute logits for current batch (logits = X_batch * theta)
+        memset(logits, 0, sizeof(float) * current_batch_size * k);  // Clear logits
+        for (int i = 0; i < current_batch_size; ++i) {
+            for (int j = 0; j < k; ++j) {
+                for (int p = 0; p < n; ++p) {
+                    logits[i * k + j] += X[(start + i) * n + p] * theta[p * k + j];
+                }
+            }
+        }
+
+        // Step 2: Apply softmax to logits to get probabilities
+        for (int i = 0; i < current_batch_size; ++i) {
+            // Compute softmax probabilities
+            float sum_exp = 0.0;
+            for (int j = 0; j < k; ++j) {
+                probs[i * k + j] = exp(logits[i * k + j]);
+                sum_exp += probs[i * k + j];
+            }
+            for (int j = 0; j < k; ++j) {
+                probs[i * k + j] /= sum_exp;
+            }
+        }
+
+        // Step 3: Compute gradient for theta
+        memset(grad_theta, 0, sizeof(float) * n * k);  // Clear gradient
+        for (int i = 0; i < current_batch_size; ++i) {
+            // Update gradients based on softmax output and true labels
+            for (int j = 0; j < k; ++j) {
+                float error = probs[i * k + j] - (j == y[start + i] ? 1.0f : 0.0f);  // Softmax error
+                for (int p = 0; p < n; ++p) {
+                    grad_theta[p * k + j] += X[(start + i) * n + p] * error;
+                }
+            }
+        }
+
+        // Step 4: Update theta using the gradient
+        for (int p = 0; p < n; ++p) {
+            for (int j = 0; j < k; ++j) {
+                theta[p * k + j] -= lr * grad_theta[p * k + j] / current_batch_size;
+            }
+        }
+    }
+
+    // Free allocated memory
+    delete[] logits;
+    delete[] probs;
+    delete[] grad_theta;
     /// END YOUR CODE
 }
 
